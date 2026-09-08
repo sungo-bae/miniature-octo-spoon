@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>채용정보 등록 신청 | 실버잡</title>
+<meta name="description" content="실버잡에 채용정보를 등록하고 싶은 기관·기업 담당자를 위한 등록 신청 페이지입니다.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧡</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<a class="skip-link" href="#main">본문 바로가기</a>
+
+<!-- ===== Header ===== -->
+<header class="site-header">
+  <div class="header-inner">
+    <a class="logo" href="/" aria-label="실버잡 홈으로 이동">
+      <span class="logo-mark" aria-hidden="true">🧡</span>
+      <span class="logo-text">실버잡<span class="logo-sub">.kr</span></span>
+    </a>
+
+    <nav class="main-nav" id="mainNav" aria-label="주요 메뉴">
+      <a href="/#jobs">일자리찾기</a>
+      <a href="/#categories">직종별 보기</a>
+      <a href="/#how">이용방법</a>
+      <a href="/#reviews">이용후기</a>
+      <a href="/#notice">공지사항</a>
+      <a href="/partner.html" class="nav-cta">채용정보 등록</a>
+    </nav>
+
+    <div class="header-tools">
+      <div class="font-size-control" role="group" aria-label="글자 크기 조절">
+        <span class="fs-label" aria-hidden="true">글자크기</span>
+        <button type="button" id="fsDown" aria-label="글자 작게">가<small>−</small></button>
+        <button type="button" id="fsReset" aria-label="글자 기본크기">가</button>
+        <button type="button" id="fsUp" aria-label="글자 크게">가<small>+</small></button>
+      </div>
+      <button type="button" class="hamburger" id="hamburger" aria-expanded="false" aria-controls="mainNav" aria-label="메뉴 열기">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="section" style="padding-top:56px;">
+    <div class="section-inner" style="max-width:720px;">
+      <h1 class="section-title" style="font-size:clamp(1.6rem,3.4vw,2.2rem);">채용정보 등록 신청</h1>
+      <p class="section-desc">
+        시니어 채용을 원하는 기관·기업이라면 누구나 신청할 수 있습니다. 접수된 내용은
+        실버잡 담당자가 확인 후 사이트에 정식으로 등록해 드립니다 (검수 후 반영까지 1~2일 정도 걸릴 수 있어요).
+      </p>
+
+      <form
+        name="job-submission"
+        method="POST"
+        data-netlify="true"
+        data-netlify-honeypot="bot-field"
+        class="partner-form"
+        id="partnerForm"
+      >
+        <input type="hidden" name="form-name" value="job-submission" />
+        <p class="hidden-field" aria-hidden="true">
+          <label>이 칸은 비워두세요: <input name="bot-field" /></label>
+        </p>
+
+        <div class="form-row">
+          <label for="pfCompany">기관/업체명 *</label>
+          <input type="text" id="pfCompany" name="company" required>
+        </div>
+
+        <div class="form-row two-col">
+          <div>
+            <label for="pfManagerName">담당자 성함 *</label>
+            <input type="text" id="pfManagerName" name="managerName" required>
+          </div>
+          <div>
+            <label for="pfPhone">연락처 *</label>
+            <input type="tel" id="pfPhone" name="phone" placeholder="010-0000-0000" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="pfEmail">이메일 *</label>
+          <input type="email" id="pfEmail" name="email" required>
+        </div>
+
+        <div class="form-row">
+          <label for="pfTitle">채용 제목 *</label>
+          <input type="text" id="pfTitle" name="title" placeholder="예: 아파트 관리사무소 관리보조 모집" required>
+        </div>
+
+        <div class="form-row two-col">
+          <div>
+            <label for="pfRegion">근무 지역 *</label>
+            <select id="pfRegion" name="region" required>
+              <option value="">선택해주세요</option>
+              <option>서울</option>
+              <option>경기·인천</option>
+              <option>부산·경남</option>
+              <option>대구·경북</option>
+              <option>광주·전라</option>
+              <option>대전·충청</option>
+              <option>강원</option>
+            </select>
+          </div>
+          <div>
+            <label for="pfJobType">직종 *</label>
+            <select id="pfJobType" name="jobType" required>
+              <option value="">선택해주세요</option>
+              <option value="시설관리">아파트·시설관리</option>
+              <option value="사무보조">사무보조</option>
+              <option value="미화">미화·청소</option>
+              <option value="조리">급식·조리보조</option>
+              <option value="경비안전">경비·안전관리</option>
+              <option value="사회공헌">사회공헌활동</option>
+              <option value="기타">기타</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row two-col">
+          <div>
+            <label for="pfCondition">근무조건</label>
+            <input type="text" id="pfCondition" name="condition" placeholder="예: 주 5일 · 오전 근무">
+          </div>
+          <div>
+            <label for="pfPay">급여</label>
+            <input type="text" id="pfPay" name="pay" placeholder="예: 월 130만원 / 시급 10,500원">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="pfDetail">상세 내용</label>
+          <textarea id="pfDetail" name="detail" rows="5" placeholder="자격 요건, 우대 사항, 근무지 주소 등 자유롭게 작성해주세요."></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg">등록 신청하기</button>
+      </form>
+
+      <div class="form-success" id="formSuccess" hidden>
+        <p>✅ 신청이 접수되었습니다. 확인 후 담당자가 등록해 드릴게요. 감사합니다!</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===== Footer ===== -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="logo-mark" aria-hidden="true">🧡</span>
+      <span class="logo-text">실버잡<span class="logo-sub">.kr</span></span>
+      <p>시니어의 든든한 두 번째 일터, 실버잡</p>
+    </div>
+    <div class="footer-info">
+      <p>(예시) 실버잡 사회적협동조합 · 대표 배성오</p>
+      <p>주소: (예시) 서울특별시 어딘가 실버로 123</p>
+      <p>대표전화: 1588-0000 · 이메일: a50819323@gmail.com</p>
+      <p>사업자등록번호: 000-00-00000</p>
+    </div>
+    <div class="footer-links">
+      <a href="/#top">홈으로</a>
+      <a href="/partner.html">채용정보 등록 신청</a>
+      <a href="/admin/">관리자 로그인</a>
+    </div>
+  </div>
+  <p class="footer-copy">© 2026 실버잡(silverjob.kr). All rights reserved.</p>
+</footer>
+
+<script src="js/main.js"></script>
+<script src="js/partner-form.js"></script>
+</body>
+</html>
