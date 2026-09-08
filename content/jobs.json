@@ -1,0 +1,13 @@
+{
+  "jobs": [
+    { "title": "○○아파트 관리사무소 관리보조", "company": "○○아파트관리사무소", "region": "서울", "job": "시설관리", "type": "주 5일 · 오전 근무", "pay": "월 130만원", "isNew": true },
+    { "title": "구청 민원실 사무보조", "company": "○○구청", "region": "서울", "job": "사무보조", "type": "주 5일 · 단시간", "pay": "시급 10,500원", "isNew": false },
+    { "title": "초등학교 급식 조리보조", "company": "○○초등학교", "region": "경기·인천", "job": "조리", "type": "주 5일 · 학기중", "pay": "월 118만원", "isNew": true },
+    { "title": "지하철역 미화 도우미", "company": "○○교통공사", "region": "서울", "job": "미화", "type": "주 5일 · 교대근무", "pay": "시급 10,200원", "isNew": false },
+    { "title": "공영주차장 안전관리요원", "company": "○○시설공단", "region": "부산·경남", "job": "경비안전", "type": "주 3일 · 야간 가능", "pay": "시급 10,800원", "isNew": false },
+    { "title": "지역아동센터 사회공헌활동가", "company": "○○복지관", "region": "대전·충청", "job": "사회공헌", "type": "주 3일 · 오후", "pay": "활동비 월 30만원", "isNew": true },
+    { "title": "빌딩 시설관리 보조", "company": "○○빌딩관리", "region": "경기·인천", "job": "시설관리", "type": "주 5일 · 오전", "pay": "월 142만원", "isNew": false },
+    { "title": "도서관 사무보조", "company": "○○구립도서관", "region": "대구·경북", "job": "사무보조", "type": "주 4일 · 단시간", "pay": "시급 10,500원", "isNew": false },
+    { "title": "노인복지관 급식 조리보조", "company": "○○노인복지관", "region": "광주·전라", "job": "조리", "type": "주 5일 · 오전", "pay": "월 125만원", "isNew": false }
+  ]
+}

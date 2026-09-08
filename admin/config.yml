@@ -1,0 +1,60 @@
+backend:
+  name: git-gateway
+  branch: main
+
+# 로그인/저장이 이 값을 통해 사이트 도메인으로 리디렉션됩니다.
+site_url: https://silverjob.kr
+display_url: https://silverjob.kr
+
+media_folder: "assets/uploads"
+public_folder: "/assets/uploads"
+
+collections:
+  - name: "jobs"
+    label: "채용정보"
+    files:
+      - name: "jobs"
+        label: "일자리 목록"
+        file: "content/jobs.json"
+        fields:
+          - label: "일자리 목록"
+            name: "jobs"
+            widget: "list"
+            summary: "{{title}} · {{company}}"
+            fields:
+              - { label: "제목", name: "title", widget: "string" }
+              - { label: "기관/업체명", name: "company", widget: "string" }
+              - label: "지역"
+                name: "region"
+                widget: "select"
+                options: ["서울", "경기·인천", "부산·경남", "대구·경북", "광주·전라", "대전·충청", "강원"]
+              - label: "직종"
+                name: "job"
+                widget: "select"
+                options:
+                  - { label: "아파트·시설관리", value: "시설관리" }
+                  - { label: "사무보조", value: "사무보조" }
+                  - { label: "미화·청소", value: "미화" }
+                  - { label: "급식·조리보조", value: "조리" }
+                  - { label: "경비·안전관리", value: "경비안전" }
+                  - { label: "사회공헌활동", value: "사회공헌" }
+              - { label: "근무조건 (예: 주 5일 · 오전 근무)", name: "type", widget: "string" }
+              - { label: "급여 (예: 월 130만원)", name: "pay", widget: "string" }
+              - { label: "신규 표시(NEW 배지)", name: "isNew", widget: "boolean", default: false, required: false }
+
+  - name: "notices"
+    label: "공지사항"
+    files:
+      - name: "notices"
+        label: "공지 목록"
+        file: "content/notices.json"
+        fields:
+          - label: "공지 목록"
+            name: "notices"
+            widget: "list"
+            summary: "{{title}} ({{date}})"
+            fields:
+              - { label: "제목", name: "title", widget: "string" }
+              - { label: "날짜", name: "date", widget: "datetime", format: "YYYY.MM.DD", date_format: "YYYY.MM.DD", time_format: false }
+              - { label: "신규 표시(NEW 배지)", name: "isNew", widget: "boolean", default: false, required: false }
+              - { label: "연결 링크(선택, 비우면 클릭 안 됨)", name: "link", widget: "string", required: false, default: "" }

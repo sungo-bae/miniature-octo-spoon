@@ -61,18 +61,14 @@
     });
   }
 
-  /* ---------------- 예시 일자리 데이터 ----------------
-     실제 서비스에서는 이 배열을 API 응답으로 교체하세요. */
-  var JOBS = [
+  /* ---------------- 일자리 데이터 ----------------
+     실제 데이터는 content/jobs.json에서 불러옵니다.
+     관리자 화면(/admin)에서 채용정보를 등록/수정하면 그 파일이 갱신되고,
+     새로 배포된 뒤 여기 반영됩니다. 아래는 fetch 실패 시에만 쓰는 예비 데이터입니다. */
+  var JOBS = [];
+  var FALLBACK_JOBS = [
     { title: "○○아파트 관리사무소 관리보조", company: "○○아파트관리사무소", region: "서울", job: "시설관리", type: "주 5일 · 오전 근무", pay: "월 130만원", isNew: true },
-    { title: "구청 민원실 사무보조", company: "○○구청", region: "서울", job: "사무보조", type: "주 5일 · 단시간", pay: "시급 10,500원", isNew: false },
-    { title: "초등학교 급식 조리보조", company: "○○초등학교", region: "경기·인천", job: "조리", type: "주 5일 · 학기중", pay: "월 118만원", isNew: true },
-    { title: "지하철역 미화 도우미", company: "○○교통공사", region: "서울", job: "미화", type: "주 5일 · 교대근무", pay: "시급 10,200원", isNew: false },
-    { title: "공영주차장 안전관리요원", company: "○○시설공단", region: "부산·경남", job: "경비안전", type: "주 3일 · 야간 가능", pay: "시급 10,800원", isNew: false },
-    { title: "지역아동센터 사회공헌활동가", company: "○○복지관", region: "대전·충청", job: "사회공헌", type: "주 3일 · 오후", pay: "활동비 월 30만원", isNew: true },
-    { title: "빌딩 시설관리 보조", company: "○○빌딩관리", region: "경기·인천", job: "시설관리", type: "주 5일 · 오전", pay: "월 142만원", isNew: false },
-    { title: "도서관 사무보조", company: "○○구립도서관", region: "대구·경북", job: "사무보조", type: "주 4일 · 단시간", pay: "시급 10,500원", isNew: false },
-    { title: "노인복지관 급식 조리보조", company: "○○노인복지관", region: "광주·전라", job: "조리", type: "주 5일 · 오전", pay: "월 125만원", isNew: false }
+    { title: "구청 민원실 사무보조", company: "○○구청", region: "서울", job: "사무보조", type: "주 5일 · 단시간", pay: "시급 10,500원", isNew: false }
   ];
 
   var jobGrid = document.getElementById("jobGrid");
@@ -107,7 +103,42 @@
     if (jobEmpty) jobEmpty.hidden = filtered.length !== 0;
   }
 
-  renderJobs("", "");
+  fetch("content/jobs.json")
+    .then(function (res) { return res.ok ? res.json() : Promise.reject(res.status); })
+    .then(function (data) { JOBS = data.jobs || FALLBACK_JOBS; })
+    .catch(function () { JOBS = FALLBACK_JOBS; })
+    .then(function () {
+      var regionEl = document.getElementById("searchRegion");
+      var jobEl = document.getElementById("searchJob");
+      renderJobs(regionEl ? regionEl.value : "", jobEl ? jobEl.value : "");
+    });
+
+  /* ---------------- 공지사항 (content/notices.json에서 불러옴) ---------------- */
+  var noticeList = document.getElementById("noticeList");
+  var FALLBACK_NOTICES = [
+    { title: "실버잡 홈페이지 오픈 안내", date: "2026.09.08", isNew: true, link: "" }
+  ];
+
+  function noticeItemHTML(notice) {
+    var safeHref = notice.link ? notice.link : "#";
+    return (
+      '<li>' +
+        (notice.isNew ? '<span class="tag tag-new">신규</span>' : '') +
+        '<a href="' + safeHref + '">' + notice.title + '</a>' +
+        '<time>' + notice.date + '</time>' +
+      '</li>'
+    );
+  }
+
+  function renderNotices(notices) {
+    if (!noticeList) return;
+    noticeList.innerHTML = notices.map(noticeItemHTML).join("");
+  }
+
+  fetch("content/notices.json")
+    .then(function (res) { return res.ok ? res.json() : Promise.reject(res.status); })
+    .then(function (data) { renderNotices(data.notices || FALLBACK_NOTICES); })
+    .catch(function () { renderNotices(FALLBACK_NOTICES); });
 
   /* ---------------- 검색 폼 ---------------- */
   var searchForm = document.getElementById("searchForm");
