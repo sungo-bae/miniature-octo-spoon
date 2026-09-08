@@ -110,6 +110,22 @@
     var totalEl = document.getElementById("statTotalJobs");
     if (totalEl) totalEl.textContent = JOBS.length.toLocaleString("ko-KR") + "개";
 
+    // 신규 일자리: 관리자가 CMS에서 "신규 표시"를 켠 채용정보 수
+    var newEl = document.getElementById("statNewJobs");
+    if (newEl) {
+      var newCount = JOBS.filter(function (j) { return j.isNew; }).length;
+      newEl.textContent = newCount.toLocaleString("ko-KR") + "개";
+    }
+
+    // 제휴 기관·기업: 등록된 일자리들의 company(기관/업체명)를 중복 제거해서 집계
+    var partnersEl = document.getElementById("statPartners");
+    if (partnersEl) {
+      var companies = {};
+      JOBS.forEach(function (j) { if (j.company) companies[j.company] = true; });
+      var partnerCount = Object.keys(companies).length;
+      partnersEl.textContent = partnerCount.toLocaleString("ko-KR") + "곳";
+    }
+
     document.querySelectorAll(".category-card").forEach(function (card) {
       var job = card.getAttribute("data-job");
       var countEl = card.querySelector(".cat-count");
