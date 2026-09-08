@@ -571,7 +571,8 @@ button { font-family: inherit; cursor: pointer; }
 .job-modal h2 { margin: 0 0 6px; font-size: 1.4rem; padding-right: 40px; }
 .job-modal-company { color: var(--color-text-muted); margin: 0 0 14px; }
 .job-modal-meta { color: var(--color-text-muted); font-size: .95rem; margin-bottom: 6px; }
-.job-modal-pay { font-weight: 800; color: var(--color-primary-dark); font-size: 1.15rem; margin: 0 0 22px; }
+.job-modal-pay { font-weight: 800; color: var(--color-primary-dark); font-size: 1.15rem; margin: 0 0 4px; }
+.job-modal-deadline { font-size: .9rem; color: var(--color-text-muted); margin: 0 0 22px; }
 .job-modal-section { margin-bottom: 18px; }
 .job-modal-section h3 { font-size: 1rem; margin: 0 0 6px; color: var(--color-secondary); }
 .job-modal-section p { margin: 0; color: var(--color-text); }

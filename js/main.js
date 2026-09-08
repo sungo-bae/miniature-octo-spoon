@@ -118,6 +118,8 @@
     document.getElementById("jobModalCompany").textContent = job.company || "";
     document.getElementById("jobModalMeta").textContent = [job.region, job.type].filter(Boolean).join(" · ");
     document.getElementById("jobModalPay").textContent = job.pay || "";
+    var deadlineEl = document.getElementById("jobModalDeadline");
+    if (deadlineEl) deadlineEl.textContent = job.deadline ? "마감일: " + job.deadline : "상시채용";
     document.getElementById("jobModalDescription").textContent = job.description || "등록된 상세 설명이 없습니다.";
     document.getElementById("jobModalRequirements").textContent = job.requirements || "제한 없음";
     document.getElementById("jobModalAddress").textContent = job.address || "실버잡 상담센터로 문의해 주세요.";

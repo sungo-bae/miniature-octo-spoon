@@ -1,23 +1,44 @@
-// 워크넷/고용24(work24.go.kr) 공공 채용정보 Open API를 주기적으로 가져와서
+// 워크넷/고용24(work24.go.kr) 채용정보 Open API를 주기적으로 가져와서
 // content/jobs-external.json을 자동 갱신하는 Netlify 예약 함수(Scheduled Function)입니다.
 //
-// ⚠️ 아직 실제로 켜지지 않은 상태입니다. 이 함수가 실제로 동작하려면:
-//   1. 공공데이터포털(data.go.kr)에서 워크넷/고용24 채용정보 Open API 활용신청 후 인증키 발급
-//   2. GitHub에서 이 저장소에 쓰기 권한이 있는 Personal Access Token 발급
-//   3. Netlify 프로젝트 → Environment variables에 아래 값 등록:
-//        WORK24_API_KEY   - 발급받은 인증키
-//        GITHUB_TOKEN     - GitHub Personal Access Token (repo 쓰기 권한)
-//        GITHUB_REPO      - "sungo-bae/miniature-octo-spoon" (기본값, 생략 가능)
-//        GITHUB_BRANCH    - "main" (기본값, 생략 가능)
+// API: 한국고용정보원_워크넷 채용정보 채용목록 및 상세정보 (data.go.kr)
+// 요청 URL: https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L01.do
+// 응답 형식: XML만 지원 (JSON 미지원) — 공식 문서의 "4. 출력결과" 스펙을 그대로 반영했습니다.
 //
-// API 응답 형식은 실제 발급 후 받는 문서/샘플 응답을 보고 mapWork24Item()을
-// 다시 맞춰야 할 가능성이 높습니다 (공공 API 문서 접근이 지금 이 환경에서
-// 막혀 있어 최신 스펙을 직접 확인하지 못한 상태로 작성했습니다).
+// 켜려면 Netlify 프로젝트 → Environment variables에 아래 값을 등록하세요:
+//   WORK24_API_KEY   - data.go.kr에서 발급받은 인증키(authKey)
+//   GITHUB_TOKEN     - 이 저장소에 쓰기 권한이 있는 GitHub Personal Access Token
+//   GITHUB_REPO      - "sungo-bae/miniature-octo-spoon" (기본값, 생략 가능)
+//   GITHUB_BRANCH    - "main" (기본값, 생략 가능)
+// 값이 없으면 이 함수는 아무것도 하지 않고 조용히 종료합니다(에러 아님).
 
 const GITHUB_API = "https://api.github.com";
 const TARGET_PATH = "content/jobs-external.json";
+const WORK24_LIST_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L01.do";
 
-// 워크넷 지역명 -> 사이트에서 쓰는 7개 권역으로 단순 매핑 (필요시 보완)
+/* ---------------- 아주 단순한 XML 파서 ----------------
+   워크넷 응답 구조가 단순(중첩 없는 필드로만 구성)해서 정규식으로 충분합니다. */
+function extractTag(block, tag) {
+  const m = block.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`));
+  return m ? unescapeXml(m[1].trim()) : "";
+}
+
+function unescapeXml(str) {
+  return str
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+function splitWantedBlocks(xml) {
+  const matches = xml.match(/<wanted>[\s\S]*?<\/wanted>/g);
+  return matches || [];
+}
+
+// 워크넷 지역 텍스트 -> 사이트에서 쓰는 7개 권역으로 단순 매핑 (필요시 보완)
 function mapRegion(rawRegion) {
   if (!rawRegion) return "";
   const r = rawRegion;
@@ -31,9 +52,9 @@ function mapRegion(rawRegion) {
   return "";
 }
 
-// 직종명 텍스트에서 사이트의 6개 카테고리로 단순 키워드 매핑 (필요시 보완)
-function mapJobCategory(rawTitle, rawJobName) {
-  const text = (rawTitle || "") + " " + (rawJobName || "");
+// 채용 제목/업종 텍스트에서 사이트의 6개 카테고리로 단순 키워드 매핑 (필요시 보완)
+function mapJobCategory(title, indTpNm) {
+  const text = (title || "") + " " + (indTpNm || "");
   if (/경비|보안|안전/.test(text)) return "경비안전";
   if (/청소|미화|환경/.test(text)) return "미화";
   if (/조리|급식|주방/.test(text)) return "조리";
@@ -43,43 +64,75 @@ function mapJobCategory(rawTitle, rawJobName) {
   return "사무보조";
 }
 
-// ⚠️ 실제 API 응답 필드명은 발급 후 확인 필요. 아래는 최선 추정입니다.
-function mapWork24Item(item) {
+// regDt(등록일자, YYYYMMDD 또는 YYYY-MM-DD 형태로 추정) 기준 최근 3일 이내면 신규 표시
+function isRecent(regDt) {
+  if (!regDt) return false;
+  const digits = regDt.replace(/[^0-9]/g, "");
+  if (digits.length < 8) return false;
+  const y = digits.slice(0, 4), m = digits.slice(4, 6), d = digits.slice(6, 8);
+  const posted = new Date(`${y}-${m}-${d}T00:00:00+09:00`);
+  if (isNaN(posted.getTime())) return false;
+  const diffDays = (Date.now() - posted.getTime()) / (1000 * 60 * 60 * 24);
+  return diffDays <= 3;
+}
+
+function formatDeadline(closeDt) {
+  const digits = (closeDt || "").replace(/[^0-9]/g, "");
+  if (digits.length < 8) return "";
+  return `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6, 8)}`;
+}
+
+function mapWantedBlock(block) {
+  const title = extractTag(block, "title");
+  const indTpNm = extractTag(block, "indTpNm");
+  const minEdubg = extractTag(block, "minEdubg");
+  const maxEdubg = extractTag(block, "maxEdubg");
+  const career = extractTag(block, "career");
+  const requirementsParts = [];
+  if (minEdubg) requirementsParts.push("학력: " + minEdubg + (maxEdubg && maxEdubg !== minEdubg ? " ~ " + maxEdubg : ""));
+  if (career) requirementsParts.push("경력: " + career);
+
   return {
-    title: item.title || item.wantedTitle || "",
-    company: item.company || item.corpNm || "",
-    region: mapRegion(item.region || item.workPlaceRegion || ""),
-    job: mapJobCategory(item.title || item.wantedTitle, item.jobName),
-    type: item.workHours || item.employmentType || "",
-    pay: item.salary || item.salaryText || "",
-    isNew: !!item.isNew,
-    description: item.description || "",
-    requirements: item.requirements || "만 60세 이상",
-    preferred: item.preferred || "",
-    address: item.address || item.workPlaceAddress || "",
-    contact: item.contact || "",
-    applyUrl: item.applyUrl || item.detailUrl || "",
+    title,
+    company: extractTag(block, "company"),
+    region: mapRegion(extractTag(block, "region")),
+    job: mapJobCategory(title, indTpNm),
+    type: extractTag(block, "holidayTpNm"),
+    pay: extractTag(block, "sal") || extractTag(block, "salTpNm"),
+    isNew: isRecent(extractTag(block, "regDt")),
+    description: "", // 목록 API는 상세 설명을 제공하지 않습니다 — 지원하기 링크(원문)에서 확인
+    requirements: requirementsParts.join(" · ") || "채용공고 원문 참고",
+    preferred: "",
+    address: [extractTag(block, "basicAddr"), extractTag(block, "detailAddr")].filter(Boolean).join(" "),
+    contact: "",
+    applyUrl: extractTag(block, "wantedInfoUrl"),
+    deadline: formatDeadline(extractTag(block, "closeDt")),
     source: "워크넷"
   };
 }
 
 async function fetchWork24Jobs(apiKey) {
-  // ⚠️ 임시 엔드포인트 — 실제 발급받은 API 문서의 엔드포인트/파라미터로 교체 필요
-  const apiUrl = process.env.WORK24_API_URL || "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L21.do";
-  const url = new URL(apiUrl);
+  const url = new URL(WORK24_LIST_URL);
   url.searchParams.set("authKey", apiKey);
   url.searchParams.set("callTp", "L");
-  url.searchParams.set("returnType", "JSON");
+  url.searchParams.set("returnType", "XML");
   url.searchParams.set("startPage", "1");
-  url.searchParams.set("display", "50");
+  url.searchParams.set("display", "100");
 
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error("work24 API request failed: " + res.status);
-  const data = await res.json();
+  const xml = await res.text();
 
-  // 실제 응답 구조를 확인한 뒤 이 부분을 맞춰야 합니다.
-  const rawList = data.wantedRoot?.wanted || data.result?.list || data.jobs || [];
-  return rawList.map(mapWork24Item);
+  const blocks = splitWantedBlocks(xml);
+  const jobs = blocks.map(mapWantedBlock).filter((j) => j.title && j.company);
+
+  // 이미 마감된 공고는 제외
+  const today = new Date();
+  return jobs.filter((j) => {
+    if (!j.deadline) return true;
+    const d = new Date(j.deadline.replace(/\./g, "-"));
+    return isNaN(d.getTime()) || d >= today;
+  });
 }
 
 async function commitToGitHub({ token, repo, branch, jobs }) {
@@ -93,7 +146,7 @@ async function commitToGitHub({ token, repo, branch, jobs }) {
   const existing = await getRes.json();
 
   const content = JSON.stringify(
-    { jobs, syncedAt: new Date().toISOString(), note: "워크넷/고용24 Open API에서 자동으로 가져온 데이터입니다." },
+    { jobs, syncedAt: new Date().toISOString(), note: "워크넷 Open API에서 자동으로 가져온 데이터입니다." },
     null,
     2
   );
