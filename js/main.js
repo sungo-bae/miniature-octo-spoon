@@ -103,6 +103,23 @@
     if (jobEmpty) jobEmpty.hidden = filtered.length !== 0;
   }
 
+  /* ---------------- 현황 통계 (카테고리별/전체 일자리 건수) ----------------
+     content/jobs.json에 등록된 실제 건수를 세어 표시합니다.
+     관리자가 CMS에서 일자리를 추가/삭제하면 배포 후 이 숫자도 자동으로 바뀝니다. */
+  function updateStats() {
+    var totalEl = document.getElementById("statTotalJobs");
+    if (totalEl) totalEl.textContent = JOBS.length.toLocaleString("ko-KR") + "개";
+
+    document.querySelectorAll(".category-card").forEach(function (card) {
+      var job = card.getAttribute("data-job");
+      var countEl = card.querySelector(".cat-count");
+      if (!job || !countEl) return;
+      var count = JOBS.filter(function (j) { return j.job === job; }).length;
+      var label = job === "사회공헌" ? "활동" : "일자리";
+      countEl.textContent = label + " " + count + "건";
+    });
+  }
+
   fetch("content/jobs.json")
     .then(function (res) { return res.ok ? res.json() : Promise.reject(res.status); })
     .then(function (data) { JOBS = data.jobs || FALLBACK_JOBS; })
@@ -111,6 +128,7 @@
       var regionEl = document.getElementById("searchRegion");
       var jobEl = document.getElementById("searchJob");
       renderJobs(regionEl ? regionEl.value : "", jobEl ? jobEl.value : "");
+      updateStats();
     });
 
   /* ---------------- 공지사항 (content/notices.json에서 불러옴) ---------------- */
