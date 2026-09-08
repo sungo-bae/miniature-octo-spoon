@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>이용후기 작성 | 실버잡</title>
+<meta name="description" content="실버잡을 통해 일자리를 찾으신 분들의 후기를 남겨주세요.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧡</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<a class="skip-link" href="#main">본문 바로가기</a>
+
+<!-- ===== Header ===== -->
+<header class="site-header">
+  <div class="header-inner">
+    <a class="logo" href="/" aria-label="실버잡 홈으로 이동">
+      <span class="logo-mark" aria-hidden="true">🧡</span>
+      <span class="logo-text">실버잡<span class="logo-sub">.kr</span></span>
+    </a>
+
+    <nav class="main-nav" id="mainNav" aria-label="주요 메뉴">
+      <a href="/#jobs">일자리찾기</a>
+      <a href="/#categories">직종별 보기</a>
+      <a href="/#how">이용방법</a>
+      <a href="/#reviews">이용후기</a>
+      <a href="/#notice">공지사항</a>
+      <a href="/review.html" class="nav-cta">후기 작성</a>
+    </nav>
+
+    <div class="header-tools">
+      <div class="font-size-control" role="group" aria-label="글자 크기 조절">
+        <span class="fs-label" aria-hidden="true">글자크기</span>
+        <button type="button" id="fsDown" aria-label="글자 작게">가<small>−</small></button>
+        <button type="button" id="fsReset" aria-label="글자 기본크기">가</button>
+        <button type="button" id="fsUp" aria-label="글자 크게">가<small>+</small></button>
+      </div>
+      <button type="button" class="hamburger" id="hamburger" aria-expanded="false" aria-controls="mainNav" aria-label="메뉴 열기">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <section class="section" style="padding-top:56px;">
+    <div class="section-inner" style="max-width:720px;">
+      <h1 class="section-title" style="font-size:clamp(1.6rem,3.4vw,2.2rem);">이용후기 작성</h1>
+      <p class="section-desc">
+        실버잡을 통해 일자리나 사회공헌활동을 찾으셨나요? 다른 분들에게도 큰 힘이 됩니다.
+        후기는 실버잡 담당자가 확인 후 홈페이지에 게시해 드립니다.
+      </p>
+
+      <form
+        name="review-submission"
+        method="POST"
+        data-netlify="true"
+        data-netlify-honeypot="bot-field"
+        class="partner-form"
+        id="reviewForm"
+      >
+        <input type="hidden" name="form-name" value="review-submission" />
+        <p class="hidden-field" aria-hidden="true">
+          <label>이 칸은 비워두세요: <input name="bot-field" /></label>
+        </p>
+
+        <div class="form-row two-col">
+          <div>
+            <label for="rvName">성함 (예: 김○○ 님으로 표시) *</label>
+            <input type="text" id="rvName" name="name" required>
+          </div>
+          <div>
+            <label for="rvAge">나이 *</label>
+            <input type="number" id="rvAge" name="age" min="50" max="100" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="rvJob">어떤 일자리/활동을 하셨나요? *</label>
+          <input type="text" id="rvJob" name="jobTitle" placeholder="예: 아파트 관리보조" required>
+        </div>
+
+        <div class="form-row">
+          <label for="rvContent">후기 내용 *</label>
+          <textarea id="rvContent" name="content" rows="6" placeholder="실버잡을 어떻게 이용하셨는지, 어떤 점이 좋았는지 자유롭게 적어주세요." required></textarea>
+        </div>
+
+        <div class="form-row two-col">
+          <div>
+            <label for="rvPhone">연락처 (본인 확인용, 비공개)</label>
+            <input type="tel" id="rvPhone" name="phone" placeholder="010-0000-0000">
+          </div>
+          <div>
+            <label for="rvEmail">이메일 (선택)</label>
+            <input type="email" id="rvEmail" name="email">
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg">후기 남기기</button>
+      </form>
+
+      <div class="form-success" id="formSuccess" hidden>
+        <p>✅ 소중한 후기 감사합니다! 확인 후 홈페이지에 게시해 드릴게요.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===== Footer ===== -->
+<footer class="site-footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="logo-mark" aria-hidden="true">🧡</span>
+      <span class="logo-text">실버잡<span class="logo-sub">.kr</span></span>
+      <p>시니어의 든든한 두 번째 일터, 실버잡</p>
+    </div>
+    <div class="footer-info">
+      <p>(예시) 실버잡 사회적협동조합 · 대표 배성오</p>
+      <p>주소: (예시) 서울특별시 어딘가 실버로 123</p>
+      <p>대표전화: 1588-0000 · 이메일: a50819323@gmail.com</p>
+      <p>사업자등록번호: 000-00-00000</p>
+    </div>
+    <div class="footer-links">
+      <a href="/#top">홈으로</a>
+      <a href="/partner.html">채용정보 등록 신청</a>
+      <a href="/admin/">관리자 로그인</a>
+    </div>
+  </div>
+  <p class="footer-copy">© 2026 실버잡(silverjob.kr). All rights reserved.</p>
+</footer>
+
+<script src="js/main.js"></script>
+<script src="js/review-form.js"></script>
+</body>
+</html>

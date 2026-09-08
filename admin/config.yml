@@ -41,6 +41,27 @@ collections:
               - { label: "근무조건 (예: 주 5일 · 오전 근무)", name: "type", widget: "string" }
               - { label: "급여 (예: 월 130만원)", name: "pay", widget: "string" }
               - { label: "신규 표시(NEW 배지)", name: "isNew", widget: "boolean", default: false, required: false }
+              - { label: "상세 설명", name: "description", widget: "text", required: false }
+              - { label: "자격 요건", name: "requirements", widget: "string", required: false }
+              - { label: "우대 사항", name: "preferred", widget: "string", required: false }
+              - { label: "근무지 주소", name: "address", widget: "string", required: false }
+              - { label: "문의처", name: "contact", widget: "string", required: false, default: "실버잡 상담센터 1588-0000" }
+
+  - name: "reviews"
+    label: "이용후기"
+    files:
+      - name: "reviews"
+        label: "후기 목록"
+        file: "content/reviews.json"
+        fields:
+          - label: "후기 목록"
+            name: "reviews"
+            widget: "list"
+            summary: "{{name}} · {{jobTitle}}"
+            fields:
+              - { label: "성함 (예: 김○○ 님)", name: "name", widget: "string" }
+              - { label: "나이/직종 (예: 65세 · 아파트 관리보조)", name: "jobTitle", widget: "string" }
+              - { label: "후기 내용", name: "content", widget: "text" }
 
   - name: "notices"
     label: "공지사항"

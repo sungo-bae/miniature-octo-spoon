@@ -126,11 +126,12 @@ button { font-family: inherit; cursor: pointer; }
 .main-nav {
   display: flex;
   align-items: center;
-  gap: 26px;
+  gap: 18px;
   flex: 1;
   font-weight: 500;
+  overflow-x: auto;
 }
-.main-nav a { padding: 8px 2px; border-bottom: 3px solid transparent; }
+.main-nav a { padding: 8px 2px; border-bottom: 3px solid transparent; white-space: nowrap; flex-shrink: 0; }
 .main-nav a:hover { border-color: var(--color-primary); }
 .main-nav .nav-cta {
   margin-left: auto;
@@ -316,6 +317,13 @@ button { font-family: inherit; cursor: pointer; }
   transition: box-shadow .15s ease, transform .15s ease;
 }
 .job-card:hover { box-shadow: var(--shadow-soft); transform: translateY(-3px); }
+.job-card { cursor: pointer; }
+.job-card-more {
+  margin: 0;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  font-size: .92rem;
+}
 .job-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
 .job-tag {
   display: inline-block;
@@ -514,6 +522,60 @@ button { font-family: inherit; cursor: pointer; }
 @media (max-width: 560px) {
   .form-row.two-col { grid-template-columns: 1fr; }
 }
+
+/* ---------- Job detail modal ---------- */
+.job-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(43, 38, 34, 0.55);
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 200;
+}
+.job-modal-backdrop:not([hidden]) { display: flex; }
+.job-modal {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: 32px;
+  max-width: 560px;
+  width: 100%;
+  max-height: 88vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 30px 60px -20px rgba(0,0,0,0.4);
+}
+.job-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-secondary-light);
+  color: var(--color-secondary);
+  font-size: 1.1rem;
+}
+.job-modal-tag {
+  display: inline-block;
+  background: var(--color-primary);
+  color: #fff;
+  font-size: .78rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin: 0 0 10px;
+  min-height: 1em;
+}
+.job-modal h2 { margin: 0 0 6px; font-size: 1.4rem; padding-right: 40px; }
+.job-modal-company { color: var(--color-text-muted); margin: 0 0 14px; }
+.job-modal-meta { color: var(--color-text-muted); font-size: .95rem; margin-bottom: 6px; }
+.job-modal-pay { font-weight: 800; color: var(--color-primary-dark); font-size: 1.15rem; margin: 0 0 22px; }
+.job-modal-section { margin-bottom: 18px; }
+.job-modal-section h3 { font-size: 1rem; margin: 0 0 6px; color: var(--color-secondary); }
+.job-modal-section p { margin: 0; color: var(--color-text); }
+.job-modal-actions { margin-top: 24px; }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {

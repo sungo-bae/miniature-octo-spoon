@@ -190,21 +190,15 @@
   <!-- ===== Reviews ===== -->
   <section class="section section-alt" id="reviews">
     <div class="section-inner">
-      <h2 class="section-title">먼저 경험하신 분들의 이야기</h2>
+      <div class="section-head-row">
+        <div>
+          <h2 class="section-title">먼저 경험하신 분들의 이야기</h2>
+          <p class="section-desc">실버잡을 통해 일자리를 찾으셨나요? <a href="/review.html" style="color:var(--color-primary-dark); font-weight:700; text-decoration:underline;">내 후기도 남기기</a></p>
+        </div>
+      </div>
 
-      <div class="review-grid">
-        <blockquote class="review-card">
-          <p>“전화 한 통으로 상담하고, 집 근처 관리사무소에 취업했어요. 글씨가 커서 눈이 편했습니다.”</p>
-          <cite>김○○ 님 · 65세 · 아파트 관리보조</cite>
-        </blockquote>
-        <blockquote class="review-card">
-          <p>“복잡한 사이트가 많았는데, 실버잡은 큼직큼직해서 저 같은 컴맹도 혼자 신청했어요.”</p>
-          <cite>이○○ 님 · 71세 · 급식 조리보조</cite>
-        </blockquote>
-        <blockquote class="review-card">
-          <p>“은퇴 후 마음이 허전했는데, 사회공헌활동으로 다시 활력을 찾았습니다. 감사해요.”</p>
-          <cite>박○○ 님 · 68세 · 사회공헌활동</cite>
-        </blockquote>
+      <div class="review-grid" id="reviewGrid">
+        <!-- content/reviews.json 내용으로 js/main.js가 채웁니다 -->
       </div>
     </div>
   </section>
@@ -255,11 +249,45 @@
       <a href="#">이용약관</a>
       <a href="#">개인정보처리방침</a>
       <a href="/partner.html">채용정보 등록 신청</a>
+      <a href="/review.html">이용후기 작성</a>
       <a href="/admin/">관리자 로그인</a>
     </div>
   </div>
   <p class="footer-copy">© 2026 실버잡(silverjob.kr). All rights reserved. (본 사이트의 채용정보 및 연락처는 예시 데이터입니다.)</p>
 </footer>
+
+<!-- ===== Job detail modal ===== -->
+<div class="job-modal-backdrop" id="jobModalBackdrop" hidden>
+  <div class="job-modal" role="dialog" aria-modal="true" aria-labelledby="jobModalTitle">
+    <button type="button" class="job-modal-close" id="jobModalClose" aria-label="닫기">✕</button>
+    <p class="job-modal-tag" id="jobModalTag"></p>
+    <h2 id="jobModalTitle"></h2>
+    <p class="job-modal-company" id="jobModalCompany"></p>
+    <div class="job-modal-meta" id="jobModalMeta"></div>
+    <p class="job-modal-pay" id="jobModalPay"></p>
+
+    <div class="job-modal-section">
+      <h3>상세 설명</h3>
+      <p id="jobModalDescription"></p>
+    </div>
+    <div class="job-modal-section">
+      <h3>자격 요건</h3>
+      <p id="jobModalRequirements"></p>
+    </div>
+    <div class="job-modal-section" id="jobModalPreferredWrap">
+      <h3>우대 사항</h3>
+      <p id="jobModalPreferred"></p>
+    </div>
+    <div class="job-modal-section">
+      <h3>근무지 주소</h3>
+      <p id="jobModalAddress"></p>
+    </div>
+
+    <div class="job-modal-actions">
+      <a href="tel:1588-0000" class="btn btn-primary btn-lg" id="jobModalContact">📞 문의하기</a>
+    </div>
+  </div>
+</div>
 
 <!-- ===== Floating call button ===== -->
 <a href="tel:1588-0000" class="fab-call" aria-label="전화 상담하기 1588-0000">

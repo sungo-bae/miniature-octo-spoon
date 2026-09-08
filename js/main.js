@@ -76,7 +76,7 @@
 
   function jobCardHTML(job) {
     return (
-      '<article class="job-card">' +
+      '<article class="job-card" tabindex="0" role="button" aria-haspopup="dialog">' +
         '<div class="job-card-top">' +
           '<div>' +
             '<p class="job-title">' + job.title + '</p>' +
@@ -86,9 +86,12 @@
         '</div>' +
         '<div class="job-meta"><span>' + job.region + '</span><span>' + job.type + '</span></div>' +
         '<p class="job-pay">' + job.pay + '</p>' +
+        '<p class="job-card-more">자세히 보기 →</p>' +
       '</article>'
     );
   }
+
+  var lastFilteredJobs = [];
 
   function renderJobs(filterRegion, filterJob) {
     if (!jobGrid) return;
@@ -98,9 +101,75 @@
       return regionOk && jobOk;
     });
 
+    lastFilteredJobs = filtered;
     jobGrid.innerHTML = filtered.map(jobCardHTML).join("");
 
     if (jobEmpty) jobEmpty.hidden = filtered.length !== 0;
+  }
+
+  /* ---------------- 일자리 상세 팝업 ---------------- */
+  var jobModalBackdrop = document.getElementById("jobModalBackdrop");
+  var jobModalLastFocused = null;
+
+  function openJobModal(job) {
+    if (!jobModalBackdrop) return;
+    document.getElementById("jobModalTag").textContent = job.isNew ? "NEW" : "";
+    document.getElementById("jobModalTitle").textContent = job.title || "";
+    document.getElementById("jobModalCompany").textContent = job.company || "";
+    document.getElementById("jobModalMeta").textContent = [job.region, job.type].filter(Boolean).join(" · ");
+    document.getElementById("jobModalPay").textContent = job.pay || "";
+    document.getElementById("jobModalDescription").textContent = job.description || "등록된 상세 설명이 없습니다.";
+    document.getElementById("jobModalRequirements").textContent = job.requirements || "제한 없음";
+    document.getElementById("jobModalAddress").textContent = job.address || "실버잡 상담센터로 문의해 주세요.";
+
+    var preferredWrap = document.getElementById("jobModalPreferredWrap");
+    if (job.preferred) {
+      preferredWrap.hidden = false;
+      document.getElementById("jobModalPreferred").textContent = job.preferred;
+    } else if (preferredWrap) {
+      preferredWrap.hidden = true;
+    }
+
+    jobModalLastFocused = document.activeElement;
+    jobModalBackdrop.hidden = false;
+    document.body.style.overflow = "hidden";
+    var closeBtn = document.getElementById("jobModalClose");
+    if (closeBtn) closeBtn.focus();
+  }
+
+  function closeJobModal() {
+    if (!jobModalBackdrop) return;
+    jobModalBackdrop.hidden = true;
+    document.body.style.overflow = "";
+    if (jobModalLastFocused && jobModalLastFocused.focus) jobModalLastFocused.focus();
+  }
+
+  if (jobModalBackdrop) {
+    document.getElementById("jobModalClose").addEventListener("click", closeJobModal);
+    jobModalBackdrop.addEventListener("click", function (e) {
+      if (e.target === jobModalBackdrop) closeJobModal();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !jobModalBackdrop.hidden) closeJobModal();
+    });
+  }
+
+  function handleJobCardActivate(target) {
+    var card = target.closest ? target.closest(".job-card") : null;
+    if (!card || !jobGrid) return;
+    var index = Array.prototype.indexOf.call(jobGrid.children, card);
+    var job = lastFilteredJobs[index];
+    if (job) openJobModal(job);
+  }
+
+  if (jobGrid) {
+    jobGrid.addEventListener("click", function (e) { handleJobCardActivate(e.target); });
+    jobGrid.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        var card = e.target.closest ? e.target.closest(".job-card") : null;
+        if (card) { e.preventDefault(); handleJobCardActivate(e.target); }
+      }
+    });
   }
 
   /* ---------------- 현황 통계 (카테고리별/전체 일자리 건수) ----------------
@@ -173,6 +242,31 @@
     .then(function (res) { return res.ok ? res.json() : Promise.reject(res.status); })
     .then(function (data) { renderNotices(data.notices || FALLBACK_NOTICES); })
     .catch(function () { renderNotices(FALLBACK_NOTICES); });
+
+  /* ---------------- 이용후기 (content/reviews.json에서 불러옴) ---------------- */
+  var reviewGrid = document.getElementById("reviewGrid");
+  var FALLBACK_REVIEWS = [
+    { name: "실버잡", jobTitle: "이용후기", content: "아직 등록된 후기가 없습니다. 첫 번째 후기를 남겨주세요!" }
+  ];
+
+  function reviewCardHTML(review) {
+    return (
+      '<blockquote class="review-card">' +
+        '<p>“' + review.content + '”</p>' +
+        '<cite>' + review.name + ' · ' + review.jobTitle + '</cite>' +
+      '</blockquote>'
+    );
+  }
+
+  function renderReviews(reviews) {
+    if (!reviewGrid) return;
+    reviewGrid.innerHTML = reviews.map(reviewCardHTML).join("");
+  }
+
+  fetch("content/reviews.json")
+    .then(function (res) { return res.ok ? res.json() : Promise.reject(res.status); })
+    .then(function (data) { renderReviews(data.reviews && data.reviews.length ? data.reviews : FALLBACK_REVIEWS); })
+    .catch(function () { renderReviews(FALLBACK_REVIEWS); });
 
   /* ---------------- 검색 폼 ---------------- */
   var searchForm = document.getElementById("searchForm");
