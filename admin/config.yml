@@ -46,6 +46,8 @@ collections:
               - { label: "우대 사항", name: "preferred", widget: "string", required: false }
               - { label: "근무지 주소", name: "address", widget: "string", required: false }
               - { label: "문의처", name: "contact", widget: "string", required: false, default: "실버잡 상담센터 1588-0000" }
+              - { label: "원문 공고 링크 (있으면 '지원하기' 버튼이 이 주소로 연결됩니다)", name: "applyUrl", widget: "string", required: false, default: "" }
+              - { label: "출처 (예: 워크넷, 실버잡 등록)", name: "source", widget: "string", required: false, default: "실버잡 등록" }
 
   - name: "reviews"
     label: "이용후기"

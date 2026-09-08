@@ -130,6 +130,24 @@
       preferredWrap.hidden = true;
     }
 
+    var sourceEl = document.getElementById("jobModalSource");
+    if (sourceEl) sourceEl.textContent = job.source ? "출처: " + job.source : "";
+
+    var contactBtn = document.getElementById("jobModalContact");
+    if (contactBtn) {
+      if (job.applyUrl) {
+        contactBtn.href = job.applyUrl;
+        contactBtn.textContent = "지원하기 (원문 공고로 이동)";
+        contactBtn.target = "_blank";
+        contactBtn.rel = "noopener";
+      } else {
+        contactBtn.href = "tel:1588-0000";
+        contactBtn.textContent = "📞 문의하기";
+        contactBtn.removeAttribute("target");
+        contactBtn.removeAttribute("rel");
+      }
+    }
+
     jobModalLastFocused = document.activeElement;
     jobModalBackdrop.hidden = false;
     document.body.style.overflow = "hidden";
@@ -205,9 +223,21 @@
     });
   }
 
-  fetch("content/jobs.json")
-    .then(function (res) { return res.ok ? res.json() : Promise.reject(res.status); })
-    .then(function (data) { JOBS = data.jobs || FALLBACK_JOBS; })
+  /* content/jobs.json = 관리자가 CMS로 직접 등록한 일자리
+     content/jobs-external.json = 워크넷 등 공공 API에서 자동으로 가져온 일자리 (아직 비어있을 수 있음)
+     둘을 합쳐서 보여줍니다. */
+  function fetchJobsFile(path) {
+    return fetch(path)
+      .then(function (res) { return res.ok ? res.json() : { jobs: [] }; })
+      .then(function (data) { return data.jobs || []; })
+      .catch(function () { return []; });
+  }
+
+  Promise.all([fetchJobsFile("content/jobs.json"), fetchJobsFile("content/jobs-external.json")])
+    .then(function (results) {
+      var combined = results[0].concat(results[1]);
+      JOBS = combined.length ? combined : FALLBACK_JOBS;
+    })
     .catch(function () { JOBS = FALLBACK_JOBS; })
     .then(function () {
       var regionEl = document.getElementById("searchRegion");

@@ -1,0 +1,5 @@
+{
+  "jobs": [],
+  "syncedAt": null,
+  "note": "워크넷/고용24 Open API 자동 연동이 켜지면 netlify/functions/sync-work24-jobs.mjs가 이 파일을 자동으로 채웁니다. 아직 API 키가 설정되지 않아 비어 있습니다."
+}

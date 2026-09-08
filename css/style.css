@@ -576,6 +576,7 @@ button { font-family: inherit; cursor: pointer; }
 .job-modal-section h3 { font-size: 1rem; margin: 0 0 6px; color: var(--color-secondary); }
 .job-modal-section p { margin: 0; color: var(--color-text); }
 .job-modal-actions { margin-top: 24px; }
+.job-modal-source { margin: 0; font-size: .85rem; color: var(--color-text-muted); }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 900px) {
