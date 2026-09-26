@@ -93,11 +93,20 @@
 
   var lastFilteredJobs = [];
 
+  // 나이 대신 "몸을 얼마나 쓰는 일인지"로 찾을 수 있도록 직종을 강도별로 묶은 표
+  var DIFFICULTY_MAP = {
+    light: { label: "가벼운 활동", jobs: ["사무보조", "사회공헌"] },
+    medium: { label: "보통 활동", jobs: ["조리", "미화"] },
+    active: { label: "활동적인 일", jobs: ["시설관리", "경비안전"] }
+  };
+
   function renderJobs(filterRegion, filterJob) {
     if (!jobGrid) return;
+    // filterJob은 직종 문자열 하나, 직종 배열(활동 강도 필터), 또는 빈 값일 수 있습니다.
+    var jobList = Array.isArray(filterJob) ? filterJob : (filterJob ? [filterJob] : null);
     var filtered = JOBS.filter(function (job) {
       var regionOk = !filterRegion || job.region === filterRegion;
-      var jobOk = !filterJob || job.job === filterJob;
+      var jobOk = !jobList || jobList.indexOf(job.job) !== -1;
       return regionOk && jobOk;
     });
 
@@ -215,13 +224,30 @@
       partnersEl.textContent = partnerCount.toLocaleString("ko-KR") + "곳";
     }
 
-    document.querySelectorAll(".category-card").forEach(function (card) {
+    document.querySelectorAll(".category-card[data-job]").forEach(function (card) {
       var job = card.getAttribute("data-job");
       var countEl = card.querySelector(".cat-count");
       if (!job || !countEl) return;
       var count = JOBS.filter(function (j) { return j.job === job; }).length;
       var label = job === "사회공헌" ? "활동" : "일자리";
       countEl.textContent = label + " " + count + "건";
+    });
+
+    document.querySelectorAll(".category-card[data-region]").forEach(function (card) {
+      var region = card.getAttribute("data-region");
+      var countEl = card.querySelector(".cat-count");
+      if (!region || !countEl) return;
+      var count = JOBS.filter(function (j) { return j.region === region; }).length;
+      countEl.textContent = "일자리 " + count + "건";
+    });
+
+    document.querySelectorAll(".category-card[data-difficulty]").forEach(function (card) {
+      var key = card.getAttribute("data-difficulty");
+      var countEl = card.querySelector(".cat-count");
+      var entry = DIFFICULTY_MAP[key];
+      if (!entry || !countEl) return;
+      var count = JOBS.filter(function (j) { return entry.jobs.indexOf(j.job) !== -1; }).length;
+      countEl.textContent = "일자리 " + count + "건";
     });
   }
 
@@ -313,7 +339,7 @@
   }
 
   /* ---------------- 직종 카드 클릭 시 해당 직종으로 필터링 ---------------- */
-  document.querySelectorAll(".category-card").forEach(function (card) {
+  document.querySelectorAll(".category-card[data-job]").forEach(function (card) {
     card.addEventListener("click", function (e) {
       var job = card.getAttribute("data-job");
       if (!job) return;
@@ -321,6 +347,35 @@
       var jobSelect = document.getElementById("searchJob");
       if (jobSelect) jobSelect.value = job;
       renderJobs(document.getElementById("searchRegion").value, job);
+      document.getElementById("jobs").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+
+  /* ---------------- 지역 카드 클릭 시 해당 지역으로 필터링 ---------------- */
+  document.querySelectorAll(".category-card[data-region]").forEach(function (card) {
+    card.addEventListener("click", function (e) {
+      var region = card.getAttribute("data-region");
+      if (!region) return;
+      e.preventDefault();
+      var regionSelect = document.getElementById("searchRegion");
+      if (regionSelect) regionSelect.value = region;
+      var jobSelect = document.getElementById("searchJob");
+      renderJobs(region, jobSelect ? jobSelect.value : "");
+      document.getElementById("jobs").scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
+
+  /* ---------------- 활동 강도 카드 클릭 시 해당 강도의 직종들로 필터링 ----------------
+     나이 정보가 채용 데이터에 없어서, 대신 체력 부담 기준으로 직종을 묶어 필터링합니다. */
+  document.querySelectorAll(".category-card[data-difficulty]").forEach(function (card) {
+    card.addEventListener("click", function (e) {
+      var key = card.getAttribute("data-difficulty");
+      var entry = DIFFICULTY_MAP[key];
+      if (!entry) return;
+      e.preventDefault();
+      var jobSelect = document.getElementById("searchJob");
+      if (jobSelect) jobSelect.value = ""; // 강도 필터는 여러 직종을 묶으므로 드롭다운은 "전체 직종"으로 되돌림
+      renderJobs(document.getElementById("searchRegion").value, entry.jobs);
       document.getElementById("jobs").scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });

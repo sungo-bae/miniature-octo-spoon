@@ -25,7 +25,9 @@
 
     <nav class="main-nav" id="mainNav" aria-label="주요 메뉴">
       <a href="#jobs">일자리찾기</a>
+      <a href="#regions">지역별 보기</a>
       <a href="#categories">직종별 보기</a>
+      <a href="#difficulty">활동 강도별 보기</a>
       <a href="#how">이용방법</a>
       <a href="#reviews">이용후기</a>
       <a href="#notice">공지사항</a>
@@ -101,6 +103,52 @@
     </div>
   </section>
 
+  <!-- ===== Regions ===== -->
+  <section class="section section-alt" id="regions">
+    <div class="section-inner">
+      <h2 class="section-title">어느 지역에서 일하고 싶으세요?</h2>
+      <p class="section-desc">사시는 곳 가까운 지역을 눌러보세요. 그 지역의 일자리만 바로 모아서 보여드려요.</p>
+
+      <div class="category-grid">
+        <a class="category-card" href="#jobs" data-region="서울">
+          <span class="cat-icon" aria-hidden="true">🏙️</span>
+          <span class="cat-name">서울</span>
+          <span class="cat-count">-</span>
+        </a>
+        <a class="category-card" href="#jobs" data-region="경기·인천">
+          <span class="cat-icon" aria-hidden="true">🏘️</span>
+          <span class="cat-name">경기·인천</span>
+          <span class="cat-count">-</span>
+        </a>
+        <a class="category-card" href="#jobs" data-region="부산·경남">
+          <span class="cat-icon" aria-hidden="true">🌊</span>
+          <span class="cat-name">부산·경남</span>
+          <span class="cat-count">-</span>
+        </a>
+        <a class="category-card" href="#jobs" data-region="대구·경북">
+          <span class="cat-icon" aria-hidden="true">⛰️</span>
+          <span class="cat-name">대구·경북</span>
+          <span class="cat-count">-</span>
+        </a>
+        <a class="category-card" href="#jobs" data-region="광주·전라">
+          <span class="cat-icon" aria-hidden="true">🌾</span>
+          <span class="cat-name">광주·전라</span>
+          <span class="cat-count">-</span>
+        </a>
+        <a class="category-card" href="#jobs" data-region="대전·충청">
+          <span class="cat-icon" aria-hidden="true">🏞️</span>
+          <span class="cat-name">대전·충청</span>
+          <span class="cat-count">-</span>
+        </a>
+        <a class="category-card" href="#jobs" data-region="강원">
+          <span class="cat-icon" aria-hidden="true">🏔️</span>
+          <span class="cat-name">강원</span>
+          <span class="cat-count">-</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
   <!-- ===== Categories ===== -->
   <section class="section" id="categories">
     <div class="section-inner">
@@ -136,6 +184,32 @@
         <a class="category-card" href="#jobs" data-job="사회공헌">
           <span class="cat-icon" aria-hidden="true">🤝</span>
           <span class="cat-name">사회공헌활동</span>
+          <span class="cat-count">-</span>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Difficulty (활동 강도) ===== -->
+  <section class="section" id="difficulty">
+    <div class="section-inner">
+      <h2 class="section-title">몸을 얼마나 쓰는 일을 원하세요?</h2>
+      <p class="section-desc">나이보다 중요한 건 체력이죠. 원하시는 활동 강도로 골라보세요.</p>
+
+      <div class="category-grid">
+        <a class="category-card" href="#jobs" data-difficulty="light">
+          <span class="cat-icon" aria-hidden="true">🪑</span>
+          <span class="cat-name">가벼운 활동</span>
+          <span class="cat-count">-</span>
+        </a>
+        <a class="category-card" href="#jobs" data-difficulty="medium">
+          <span class="cat-icon" aria-hidden="true">🚶</span>
+          <span class="cat-name">보통 활동</span>
+          <span class="cat-count">-</span>
+        </a>
+        <a class="category-card" href="#jobs" data-difficulty="active">
+          <span class="cat-icon" aria-hidden="true">🏃</span>
+          <span class="cat-name">활동적인 일</span>
           <span class="cat-count">-</span>
         </a>
       </div>
