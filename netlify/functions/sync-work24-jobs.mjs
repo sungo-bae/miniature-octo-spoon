@@ -53,15 +53,25 @@ function mapRegion(rawRegion) {
 }
 
 // 채용 제목/업종 텍스트에서 사이트의 6개 카테고리로 단순 키워드 매핑 (필요시 보완)
+// 시니어 채용 사이트 취지에 맞게, 어느 카테고리에도 매칭되지 않는 공고(생산직, 어린이집 교사,
+// 수영강사 등 일반 구인정보)는 null을 반환해 아예 목록에서 제외합니다.
 function mapJobCategory(title, indTpNm) {
   const text = (title || "") + " " + (indTpNm || "");
-  if (/경비|보안|안전/.test(text)) return "경비안전";
+  if (/경비|보안|안전|주차|지킴이/.test(text)) return "경비안전";
   if (/청소|미화|환경/.test(text)) return "미화";
-  if (/조리|급식|주방/.test(text)) return "조리";
+  if (/조리|급식|주방|영양사/.test(text)) return "조리";
   if (/사무|행정|접수|안내/.test(text)) return "사무보조";
-  if (/시설|관리|보수|설비/.test(text)) return "시설관리";
-  if (/공헌|봉사|돌봄|복지/.test(text)) return "사회공헌";
-  return "사무보조";
+  if (/시설|관리|보수|설비|아파트|건물|빌딩/.test(text)) return "시설관리";
+  if (/공헌|봉사|돌봄|복지|요양|간병|보호사/.test(text)) return "사회공헌";
+  return null;
+}
+
+// "3000만원 ~ 3000만원"처럼 최소·최대가 동일한 급여 범위를 단일 값으로 정리
+function formatPay(raw) {
+  if (!raw) return raw;
+  const m = raw.match(/^(.+?)\s*~\s*(.+)$/);
+  if (m && m[1].trim() === m[2].trim()) return m[1].trim();
+  return raw;
 }
 
 // regDt(등록일자, YYYYMMDD 또는 YYYY-MM-DD 형태로 추정) 기준 최근 3일 이내면 신규 표시
@@ -98,7 +108,7 @@ function mapWantedBlock(block) {
     region: mapRegion(extractTag(block, "region")),
     job: mapJobCategory(title, indTpNm),
     type: extractTag(block, "holidayTpNm"),
-    pay: extractTag(block, "sal") || extractTag(block, "salTpNm"),
+    pay: formatPay(extractTag(block, "sal") || extractTag(block, "salTpNm")),
     isNew: isRecent(extractTag(block, "regDt")),
     description: "", // 목록 API는 상세 설명을 제공하지 않습니다 — 지원하기 링크(원문)에서 확인
     requirements: requirementsParts.join(" · ") || "채용공고 원문 참고",
@@ -124,7 +134,7 @@ async function fetchWork24Jobs(apiKey) {
   const xml = await res.text();
 
   const blocks = splitWantedBlocks(xml);
-  const jobs = blocks.map(mapWantedBlock).filter((j) => j.title && j.company);
+  const jobs = blocks.map(mapWantedBlock).filter((j) => j.title && j.company && j.job);
 
   // 이미 마감된 공고는 제외
   const today = new Date();
