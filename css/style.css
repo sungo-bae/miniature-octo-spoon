@@ -605,3 +605,37 @@ button { font-family: inherit; cursor: pointer; }
   .search-submit { width: 100%; }
   .hero-stats { gap: 28px; }
 }
+
+/* ---------- Legal pages (이용약관 / 개인정보처리방침) ---------- */
+.legal-content { max-width: 780px; }
+.legal-updated { color: var(--color-text-muted); margin: -10px 0 32px; }
+.legal-content h2 {
+  font-size: 1.25rem;
+  margin: 40px 0 12px;
+  padding-top: 20px;
+  border-top: 1px solid var(--color-border);
+  color: var(--color-secondary);
+}
+.legal-content h2:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+.legal-content p { margin: 0 0 14px; }
+.legal-content .legal-item { margin: 0 0 10px; padding-left: 1.4em; text-indent: -1.4em; }
+.legal-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0 20px;
+  font-size: .95rem;
+}
+.legal-content th, .legal-content td {
+  border: 1px solid var(--color-border);
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+.legal-content th { background: var(--color-secondary-light); width: 30%; }
+.legal-content .legal-box {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  margin: 0 0 20px;
+}
