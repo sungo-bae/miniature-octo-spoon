@@ -52,10 +52,18 @@ function mapRegion(rawRegion) {
   return "";
 }
 
+// 제목만으로도 시니어 일자리와 무관하다고 확신할 수 있는 공고(어린이집/유치원 교사, 수영강사,
+// 생산직 등)는 업종명(indTpNm)에 "복지" 같은 단어가 섞여 있어도 무조건 제외합니다.
+// (예: 어린이집은 통계청 업종분류상 "사회복지 서비스업"에 속해 아래 카테고리 매칭에서 오탐이 남)
+function isSeniorUnrelated(title) {
+  return /어린이집|유치원|보육교사|보육사|수영강사|생산직|생산팀/.test(title || "");
+}
+
 // 채용 제목/업종 텍스트에서 사이트의 6개 카테고리로 단순 키워드 매핑 (필요시 보완)
 // 시니어 채용 사이트 취지에 맞게, 어느 카테고리에도 매칭되지 않는 공고(생산직, 어린이집 교사,
 // 수영강사 등 일반 구인정보)는 null을 반환해 아예 목록에서 제외합니다.
 function mapJobCategory(title, indTpNm) {
+  if (isSeniorUnrelated(title)) return null;
   const text = (title || "") + " " + (indTpNm || "");
   if (/경비|보안|안전|주차|지킴이/.test(text)) return "경비안전";
   if (/청소|미화|환경/.test(text)) return "미화";
