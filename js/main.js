@@ -4,6 +4,16 @@
 (function () {
   "use strict";
 
+  /* ---------------- 카카오톡 채널 링크 ----------------
+     채널 생성 후 아래 값을 실제 채널 URL로 바꿔주세요.
+     예: "https://pf.kakao.com/_xxXXxx/chat" */
+  var KAKAO_CHANNEL_URL = "";
+
+  var kakaoLinks = document.querySelectorAll(".kakao-link");
+  for (var ki = 0; ki < kakaoLinks.length; ki++) {
+    kakaoLinks[ki].href = KAKAO_CHANNEL_URL || "#";
+  }
+
   /* ---------------- 글자 크기 조절 ---------------- */
   var root = document.documentElement;
   var FONT_STEPS = [1, 1.12, 1.25];
@@ -131,7 +141,7 @@
     if (deadlineEl) deadlineEl.textContent = job.deadline ? "마감일: " + job.deadline : "상시채용";
     document.getElementById("jobModalDescription").textContent = job.description || "등록된 상세 설명이 없습니다.";
     document.getElementById("jobModalRequirements").textContent = job.requirements || "제한 없음";
-    document.getElementById("jobModalAddress").textContent = job.address || "실버잡 상담센터로 문의해 주세요.";
+    document.getElementById("jobModalAddress").textContent = job.address || "등록된 주소 정보가 없습니다.";
 
     var preferredWrap = document.getElementById("jobModalPreferredWrap");
     if (job.preferred) {
@@ -152,10 +162,10 @@
         contactBtn.target = "_blank";
         contactBtn.rel = "noopener";
       } else {
-        contactBtn.href = "tel:1588-0000";
-        contactBtn.textContent = "📞 문의하기";
-        contactBtn.removeAttribute("target");
-        contactBtn.removeAttribute("rel");
+        contactBtn.href = KAKAO_CHANNEL_URL || "#";
+        contactBtn.textContent = "💬 카카오톡으로 문의하기";
+        contactBtn.target = "_blank";
+        contactBtn.rel = "noopener";
       }
     }
 
