@@ -97,6 +97,15 @@
     return "job-" + ("00000000" + hash.toString(16)).slice(-8);
   }
 
+  // 워크넷(공공데이터)에서 자동으로 가져온 공고인지, 지역 업체가 실버잡에 직접 등록한
+  // 공고인지 구분해서 보여줍니다. scripts/generate-job-pages.mjs에도 같은 로직이 있어요.
+  function jobSourceBadge(job) {
+    if (job.source === "워크넷") {
+      return '<span class="job-source job-source-public">공공데이터</span>';
+    }
+    return '<span class="job-source job-source-local">지역업체 등록</span>';
+  }
+
   function jobCardHTML(job) {
     return (
       '<a class="job-card" href="/jobs/' + jobSlug(job) + '.html" aria-haspopup="dialog">' +
@@ -104,6 +113,7 @@
           '<div>' +
             '<p class="job-title">' + job.title + '</p>' +
             '<p class="job-company">' + job.company + '</p>' +
+            jobSourceBadge(job) +
           '</div>' +
           (job.isNew ? '<span class="job-tag">NEW</span>' : '') +
         '</div>' +
@@ -165,7 +175,9 @@
     }
 
     var sourceEl = document.getElementById("jobModalSource");
-    if (sourceEl) sourceEl.textContent = job.source ? "출처: " + job.source : "";
+    if (sourceEl) {
+      sourceEl.innerHTML = job.source ? jobSourceBadge(job) + " 출처: " + job.source : "";
+    }
 
     var contactBtn = document.getElementById("jobModalContact");
     if (contactBtn) {

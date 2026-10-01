@@ -47,6 +47,14 @@ function escapeHtml(str) {
     .replace(/'/g, "&#39;");
 }
 
+// js/main.js의 jobSourceBadge()와 같은 로직입니다. 한쪽만 고치면 표시가 어긋나니 같이 수정하세요.
+function jobSourceBadge(job) {
+  if (job.source === "워크넷") {
+    return '<span class="job-source job-source-public">공공데이터</span>';
+  }
+  return '<span class="job-source job-source-local">지역업체 등록</span>';
+}
+
 function buildDescription(job) {
   if (job.description && job.description.trim()) return job.description.trim();
   const parts = [];
@@ -206,7 +214,8 @@ function jobDetailPage(job, slug, fallbackDate) {
   const bodyHtml = `
       <p style="margin:0 0 18px;"><a href="/#jobs" style="color:var(--color-text-muted); text-decoration:underline;">← 전체 일자리로 돌아가기</a></p>
       <h1 class="section-title" style="font-size:clamp(1.5rem,3.2vw,2rem); margin-bottom:6px;">${escapeHtml(job.title)}</h1>
-      <p style="color:var(--color-text-muted); font-size:1.1rem; margin:0 0 18px;">${escapeHtml(job.company)}</p>
+      <p style="color:var(--color-text-muted); font-size:1.1rem; margin:0 0 10px;">${escapeHtml(job.company)}</p>
+      <p style="margin:0 0 18px;">${jobSourceBadge(job)}</p>
 
       <div class="legal-box" style="margin-bottom:24px;">
         <p style="margin:0 0 8px;"><strong>${escapeHtml(job.region || "")}</strong> ${job.type ? "· " + escapeHtml(job.type) : ""}</p>

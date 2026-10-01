@@ -354,6 +354,16 @@ button { font-family: inherit; cursor: pointer; }
 }
 .job-title { font-size: 1.15rem; font-weight: 800; margin: 0; }
 .job-company { color: var(--color-text-muted); font-size: .95rem; }
+.job-source {
+  display: inline-block;
+  font-size: .72rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  margin-top: 6px;
+}
+.job-source-public { background: #eef2f7; color: #51627a; }
+.job-source-local { background: rgba(217,97,43,0.12); color: var(--color-primary-dark); }
 .job-meta {
   display: flex;
   flex-wrap: wrap;
