@@ -129,20 +129,44 @@ function mapWantedBlock(block) {
   };
 }
 
-async function fetchWork24Jobs(apiKey) {
+const PAGE_DISPLAY = 100; // work24 쪽에서 한 페이지당 허용하는 최대 건수
+const PAGE_COUNT = 5; // startPage 1~5를 병렬로 조회 (최대 500건 원본 데이터 확보)
+
+async function fetchWork24Page(apiKey, page) {
   const url = new URL(WORK24_LIST_URL);
   url.searchParams.set("authKey", apiKey);
   url.searchParams.set("callTp", "L");
   url.searchParams.set("returnType", "XML");
-  url.searchParams.set("startPage", "1");
-  url.searchParams.set("display", "100");
+  url.searchParams.set("startPage", String(page));
+  url.searchParams.set("display", String(PAGE_DISPLAY));
 
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error("work24 API request failed: " + res.status);
   const xml = await res.text();
+  return splitWantedBlocks(xml);
+}
 
-  const blocks = splitWantedBlocks(xml);
-  const jobs = blocks.map(mapWantedBlock).filter((j) => j.title && j.company && j.job);
+async function fetchWork24Jobs(apiKey) {
+  // 페이지당 최대 건수(100)만 요청하면 전체 중 일부만 보이므로,
+  // startPage를 바꿔가며 여러 페이지를 병렬로 가져와 채용정보 풀을 넓힙니다.
+  const pagePromises = [];
+  for (let page = 1; page <= PAGE_COUNT; page++) {
+    pagePromises.push(fetchWork24Page(apiKey, page));
+  }
+  const pages = await Promise.all(pagePromises);
+  const allBlocks = pages.flat();
+
+  // 페이지 간 중복(원문 링크 기준)을 제거합니다.
+  const seen = new Set();
+  const jobs = allBlocks
+    .map(mapWantedBlock)
+    .filter((j) => j.title && j.company && j.job)
+    .filter((j) => {
+      const key = j.applyUrl || j.title + "|" + j.company + "|" + j.region;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 
   // 이미 마감된 공고는 제외
   const today = new Date();
