@@ -7,7 +7,7 @@
   /* ---------------- 카카오톡 채널 링크 ----------------
      채널 생성 후 아래 값을 실제 채널 URL로 바꿔주세요.
      예: "https://pf.kakao.com/_xxXXxx/chat" */
-  var KAKAO_CHANNEL_URL = "";
+  var KAKAO_CHANNEL_URL = "https://pf.kakao.com/_tbxnxiX/chat";
 
   var kakaoLinks = document.querySelectorAll(".kakao-link");
   for (var ki = 0; ki < kakaoLinks.length; ki++) {
