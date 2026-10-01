@@ -49,6 +49,7 @@ function mapRegion(rawRegion) {
   if (r.includes("광주") || r.includes("전남") || r.includes("전북")) return "광주·전라";
   if (r.includes("대전") || r.includes("충남") || r.includes("충북") || r.includes("세종")) return "대전·충청";
   if (r.includes("강원")) return "강원";
+  if (r.includes("제주")) return "제주";
   return "";
 }
 

@@ -27,7 +27,7 @@ collections:
               - label: "지역"
                 name: "region"
                 widget: "select"
-                options: ["서울", "경기·인천", "부산·경남", "대구·경북", "광주·전라", "대전·충청", "강원"]
+                options: ["서울", "경기·인천", "부산·경남", "대구·경북", "광주·전라", "대전·충청", "강원", "제주"]
               - label: "직종"
                 name: "job"
                 widget: "select"
