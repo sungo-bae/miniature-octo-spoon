@@ -254,6 +254,24 @@ button { font-family: inherit; cursor: pointer; }
 .hero-stats strong { font-size: 1.8rem; font-weight: 900; }
 .hero-stats span { font-size: .9rem; opacity: .9; }
 
+.hero-trust {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 28px;
+}
+.hero-trust span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.14);
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: .85rem;
+  font-weight: 600;
+}
+
 /* ---------- Section shell ---------- */
 .section { padding: 72px 20px; }
 .section-alt { background: var(--color-secondary-light); }
