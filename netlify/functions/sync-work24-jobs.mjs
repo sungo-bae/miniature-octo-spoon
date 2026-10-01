@@ -54,23 +54,27 @@ function mapRegion(rawRegion) {
 }
 
 // 제목만으로도 시니어 일자리와 무관하다고 확신할 수 있는 공고(어린이집/유치원 교사, 수영강사,
-// 생산직 등)는 업종명(indTpNm)에 "복지" 같은 단어가 섞여 있어도 무조건 제외합니다.
+// 생산직, 일반 제조·건설·영업 관리직 등)는 업종명(indTpNm)에 "복지"·"안전" 같은 단어가 섞여
+// 있어도 무조건 제외합니다.
 // (예: 어린이집은 통계청 업종분류상 "사회복지 서비스업"에 속해 아래 카테고리 매칭에서 오탐이 남)
 function isSeniorUnrelated(title) {
-  return /어린이집|유치원|보육교사|보육사|수영강사|생산직|생산팀/.test(title || "");
+  return /어린이집|유치원|보육교사|보육사|수영강사|생산직|생산팀|품질관리|자동화설비|토목|엔지니어|시공|건설산업안전|산업안전관리자|공장|폐수처리|기술영업|영업관리|현장관리자|설계/.test(title || "");
 }
 
 // 채용 제목/업종 텍스트에서 사이트의 6개 카테고리로 단순 키워드 매핑 (필요시 보완)
-// 시니어 채용 사이트 취지에 맞게, 어느 카테고리에도 매칭되지 않는 공고(생산직, 어린이집 교사,
-// 수영강사 등 일반 구인정보)는 null을 반환해 아예 목록에서 제외합니다.
-function mapJobCategory(title, indTpNm) {
+// 업종코드(indTpNm)는 실제 업무와 무관한 넓은 분류라서 오탐이 많아 더 이상 쓰지 않고,
+// 제목(title)만으로 판단합니다. "관리"·"설비"·"안전" 같은 단어 하나만으로는 매칭하지 않도록
+// (품질관리·영업관리·산업안전관리자 같은 일반 기업 관리직과 섞이지 않게) 구체적인 단어 조합만 둡니다.
+// 시니어 채용 사이트 취지에 맞게, 어느 카테고리에도 매칭되지 않는 공고는 null을 반환해
+// 아예 목록에서 제외합니다.
+function mapJobCategory(title) {
   if (isSeniorUnrelated(title)) return null;
-  const text = (title || "") + " " + (indTpNm || "");
-  if (/경비|보안|안전|주차|지킴이/.test(text)) return "경비안전";
+  const text = title || "";
+  if (/경비|보안|주차|지킴이/.test(text)) return "경비안전";
   if (/청소|미화|환경/.test(text)) return "미화";
   if (/조리|급식|주방|영양사/.test(text)) return "조리";
   if (/사무|행정|접수|안내/.test(text)) return "사무보조";
-  if (/시설|관리|보수|설비|아파트|건물|빌딩/.test(text)) return "시설관리";
+  if (/시설|아파트|건물|빌딩|관리사무소|주택관리|공동주택/.test(text)) return "시설관리";
   if (/공헌|봉사|돌봄|복지|요양|간병|보호사/.test(text)) return "사회공헌";
   return null;
 }
@@ -110,7 +114,6 @@ function formatIsoDate(rawDt) {
 
 function mapWantedBlock(block) {
   const title = extractTag(block, "title");
-  const indTpNm = extractTag(block, "indTpNm");
   const minEdubg = extractTag(block, "minEdubg");
   const maxEdubg = extractTag(block, "maxEdubg");
   const career = extractTag(block, "career");
@@ -122,7 +125,7 @@ function mapWantedBlock(block) {
     title,
     company: extractTag(block, "company"),
     region: mapRegion(extractTag(block, "region")),
-    job: mapJobCategory(title, indTpNm),
+    job: mapJobCategory(title),
     type: extractTag(block, "holidayTpNm"),
     pay: formatPay(extractTag(block, "sal") || extractTag(block, "salTpNm")),
     isNew: isRecent(extractTag(block, "regDt")),
