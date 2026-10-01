@@ -41,6 +41,7 @@ collections:
               - { label: "근무조건 (예: 주 5일 · 오전 근무)", name: "type", widget: "string" }
               - { label: "급여 (예: 월 130만원)", name: "pay", widget: "string" }
               - { label: "신규 표시(NEW 배지)", name: "isNew", widget: "boolean", default: false, required: false }
+              - { label: "등록일 (구글 일자리 검색에 쓰입니다)", name: "postedDate", widget: "datetime", format: "YYYY-MM-DD", date_format: "YYYY-MM-DD", time_format: false, default: "" }
               - { label: "상세 설명", name: "description", widget: "text", required: false }
               - { label: "자격 요건", name: "requirements", widget: "string", required: false }
               - { label: "우대 사항", name: "preferred", widget: "string", required: false }

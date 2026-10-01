@@ -84,9 +84,22 @@
   var jobGrid = document.getElementById("jobGrid");
   var jobEmpty = document.getElementById("jobEmpty");
 
+  // 채용공고별 고유 URL(/jobs/<slug>.html)을 만드는 해시 함수.
+  // scripts/generate-job-pages.mjs가 똑같은 함수로 정적 페이지를 생성하므로,
+  // 한쪽만 고치면 링크가 어긋나니 두 파일을 항상 같이 수정하세요.
+  function jobSlug(job) {
+    var key = job.applyUrl || (job.title + "|" + job.company + "|" + job.region);
+    var hash = 0x811c9dc5;
+    for (var i = 0; i < key.length; i++) {
+      hash ^= key.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return "job-" + ("00000000" + hash.toString(16)).slice(-8);
+  }
+
   function jobCardHTML(job) {
     return (
-      '<article class="job-card" tabindex="0" role="button" aria-haspopup="dialog">' +
+      '<a class="job-card" href="/jobs/' + jobSlug(job) + '.html" aria-haspopup="dialog">' +
         '<div class="job-card-top">' +
           '<div>' +
             '<p class="job-title">' + job.title + '</p>' +
@@ -97,7 +110,7 @@
         '<div class="job-meta"><span>' + job.region + '</span><span>' + job.type + '</span></div>' +
         '<p class="job-pay">' + job.pay + '</p>' +
         '<p class="job-card-more">자세히 보기 →</p>' +
-      '</article>'
+      '</a>'
     );
   }
 
@@ -202,12 +215,13 @@
   }
 
   if (jobGrid) {
-    jobGrid.addEventListener("click", function (e) { handleJobCardActivate(e.target); });
-    jobGrid.addEventListener("keydown", function (e) {
-      if (e.key === "Enter" || e.key === " ") {
-        var card = e.target.closest ? e.target.closest(".job-card") : null;
-        if (card) { e.preventDefault(); handleJobCardActivate(e.target); }
-      }
+    // 카드는 실제 href를 가진 <a> 태그(크롤러/스크린리더/JS 비활성 환경용)이지만,
+    // JS가 동작하는 일반 사용자에게는 페이지 이동 대신 기존처럼 모달을 띄워줍니다.
+    jobGrid.addEventListener("click", function (e) {
+      var card = e.target.closest ? e.target.closest(".job-card") : null;
+      if (!card) return;
+      e.preventDefault();
+      handleJobCardActivate(e.target);
     });
   }
 

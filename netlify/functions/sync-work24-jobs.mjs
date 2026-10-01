@@ -100,6 +100,13 @@ function formatDeadline(closeDt) {
   return `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6, 8)}`;
 }
 
+// 구글 일자리 검색(JobPosting)의 datePosted에 쓸 ISO 날짜(YYYY-MM-DD)
+function formatIsoDate(rawDt) {
+  const digits = (rawDt || "").replace(/[^0-9]/g, "");
+  if (digits.length < 8) return "";
+  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+}
+
 function mapWantedBlock(block) {
   const title = extractTag(block, "title");
   const indTpNm = extractTag(block, "indTpNm");
@@ -118,6 +125,7 @@ function mapWantedBlock(block) {
     type: extractTag(block, "holidayTpNm"),
     pay: formatPay(extractTag(block, "sal") || extractTag(block, "salTpNm")),
     isNew: isRecent(extractTag(block, "regDt")),
+    datePosted: formatIsoDate(extractTag(block, "regDt")),
     description: "", // 목록 API는 상세 설명을 제공하지 않습니다 — 지원하기 링크(원문)에서 확인
     requirements: requirementsParts.join(" · ") || "채용공고 원문 참고",
     preferred: "",
