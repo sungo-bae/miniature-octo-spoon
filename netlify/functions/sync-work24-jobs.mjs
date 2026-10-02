@@ -79,6 +79,26 @@ function mapJobCategory(title) {
   return null;
 }
 
+// "사회공헌"은 실버잡에서 가장 많은 카테고리인데, 제목 키워드 하나로 뭉뚱그려져 있어서
+// 무엇이 많은지 알기 어려웠습니다. work24가 공고마다 매기는 공식 직종분류코드(jobsCd)
+// 앞 3자리를 기준으로 더 세부적으로 나눕니다. 2026-10-02 기준 실제 데이터(2,815건)를
+// 분석해서 만든 매핑이며, 매핑에 없는 코드는 "기타"로 묶입니다.
+const SOCIAL_SUBCATEGORY_BY_CODE_PREFIX = {
+  "550": "요양보호사·간병",
+  "231": "사회복지사",
+  "232": "노인맞춤돌봄·생활지원",
+  "304": "간호사",
+  "306": "물리·작업치료사",
+  "307": "간호조무사·병동보조",
+  "561": "요양시설 위생관리"
+};
+
+function socialSubcategory(jobCategory, jobsCd) {
+  if (jobCategory !== "사회공헌") return "";
+  const prefix = (jobsCd || "").slice(0, 3);
+  return SOCIAL_SUBCATEGORY_BY_CODE_PREFIX[prefix] || "기타";
+}
+
 // "3000만원 ~ 3000만원"처럼 최소·최대가 동일한 급여 범위를 단일 값으로 정리
 function formatPay(raw) {
   if (!raw) return raw;
@@ -135,6 +155,8 @@ function mapWantedBlock(block) {
   if (career) requirementsParts.push("경력: " + career);
 
   const rawRegion = extractTag(block, "region");
+  const jobsCd = extractTag(block, "jobsCd");
+  const job = mapJobCategory(title);
 
   return {
     id: extractTag(block, "wantedAuthNo"),
@@ -143,9 +165,9 @@ function mapWantedBlock(block) {
     company: extractTag(block, "company"),
     region: mapRegion(rawRegion),
     regionDetail: extractRegionDetail(rawRegion),
-    job: mapJobCategory(title),
-    jobsCd: extractTag(block, "jobsCd"), // work24 공식 직종분류코드. "사회공헌" 등 큰 카테고리를
-    // 세부 직종으로 더 정확히 나눌 때 제목 키워드 추측 대신 이 코드를 기준으로 쓸 예정입니다.
+    job,
+    jobsCd, // work24 공식 직종분류코드 (사회공헌 세부분류에 사용)
+    socialSubcategory: socialSubcategory(job, jobsCd),
     type: extractTag(block, "holidayTpNm"),
     pay: formatPay(extractTag(block, "sal") || extractTag(block, "salTpNm")),
     isNew: isRecent(extractTag(block, "regDt")),
@@ -293,11 +315,13 @@ function kstDateString() {
 function buildDailyStats(jobs) {
   const byRegion = {};
   const byJob = {};
+  const bySocialSubcategory = {};
   for (const j of jobs) {
     if (j.region) byRegion[j.region] = (byRegion[j.region] || 0) + 1;
     if (j.job) byJob[j.job] = (byJob[j.job] || 0) + 1;
+    if (j.socialSubcategory) bySocialSubcategory[j.socialSubcategory] = (bySocialSubcategory[j.socialSubcategory] || 0) + 1;
   }
-  return { date: kstDateString(), total: jobs.length, byRegion, byJob };
+  return { date: kstDateString(), total: jobs.length, byRegion, byJob, bySocialSubcategory };
 }
 
 async function updateStatsHistory({ token, repo, branch, jobs }) {

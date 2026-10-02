@@ -333,6 +333,7 @@ function computeReportStats(jobs) {
   const byRegion = {};
   const byRegionDetail = {};
   const byJob = {};
+  const bySocialSubcategory = {};
   for (const j of jobs) {
     if (j.region) byRegion[j.region] = (byRegion[j.region] || 0) + 1;
     if (j.region && j.regionDetail) {
@@ -340,8 +341,11 @@ function computeReportStats(jobs) {
       byRegionDetail[key] = (byRegionDetail[key] || 0) + 1;
     }
     if (j.job) byJob[j.job] = (byJob[j.job] || 0) + 1;
+    if (j.job === "사회공헌" && j.socialSubcategory) {
+      bySocialSubcategory[j.socialSubcategory] = (bySocialSubcategory[j.socialSubcategory] || 0) + 1;
+    }
   }
-  return { total: jobs.length, byRegion, byRegionDetail, byJob };
+  return { total: jobs.length, byRegion, byRegionDetail, byJob, bySocialSubcategory };
 }
 
 function sortedEntries(obj) {
@@ -390,6 +394,18 @@ function buildReportPage(stats, history) {
     .map(([name, count], i) => `<p class="legal-item">${i + 1}. ${escapeHtml(name)} — ${count.toLocaleString("ko-KR")}건</p>`)
     .join("\n");
 
+  // "사회공헌활동"은 건수가 가장 많은 카테고리인데 범위가 넓어서, work24 공식
+  // 직종분류코드(jobsCd)를 기준으로 더 들여다봅니다. 실제 어떤 일이 많은지 보여줍니다.
+  const socialSubEntries = sortedEntries(stats.bySocialSubcategory);
+  const socialSubTotal = socialSubEntries.reduce((sum, [, c]) => sum + c, 0);
+  const socialSubMax = socialSubEntries.length ? socialSubEntries[0][1] : 0;
+  const socialSubBars = socialSubEntries.map(([name, count]) => barRow(name, count, socialSubMax)).join("");
+  const topSocial = socialSubEntries[0];
+  const topSocialPct = topSocial && socialSubTotal ? Math.round((topSocial[1] / socialSubTotal) * 100) : 0;
+  const socialInsight = topSocial
+    ? `"사회공헌활동"으로 묶이는 공고 ${socialSubTotal.toLocaleString("ko-KR")}건 중 <strong>${topSocialPct}%가 "${escapeHtml(topSocial[0])}"</strong>입니다. work24 공식 직종분류코드를 기준으로 나눴습니다.`
+    : "";
+
   let trendHtml;
   if (history.length < 2) {
     trendHtml = `<p>데이터 수집을 이제 막 시작했습니다. 매일 자동으로 쌓이는 중이니, 며칠 뒤 다시 찾아와 주시면 최근 추이를 보여드릴 수 있어요.</p>`;
@@ -429,6 +445,10 @@ function buildReportPage(stats, history) {
         <h2>직종별 분포 · 준비 방법</h2>
         <p class="section-desc" style="margin-bottom:12px;">각 직종을 준비할 때 참고할 만한 내용을 함께 정리했습니다. 더 자세한 구직 요령은 <a href="/tips.html" style="text-decoration:underline;">구직 꿀팁</a> 페이지에서 확인하실 수 있습니다.</p>
         ${jobBars || "<p>데이터가 아직 없습니다.</p>"}
+
+        <h2>"사회공헌활동", 자세히 들여다보면</h2>
+        <p class="section-desc" style="margin-bottom:12px;">${socialInsight || "데이터가 아직 충분하지 않습니다."}</p>
+        ${socialSubBars || "<p>데이터가 아직 없습니다.</p>"}
 
         <h2>최근 추이</h2>
         ${trendHtml}
