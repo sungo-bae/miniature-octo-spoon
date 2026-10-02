@@ -167,6 +167,10 @@ async function fetchWork24Jobs(apiKey) {
   // 1페이지를 먼저 조회해 전체 건수(total)를 확인합니다.
   // (전체 건수를 못 읽는 예외 상황이면 기존처럼 고정 페이지 수로 대체합니다.)
   const first = await fetchWork24Page(apiKey, 1);
+  // 임시 디버그: datePosted가 전부 비어있는 문제의 원인 확인용 — 원인 파악 후 제거할 코드입니다.
+  if (first.blocks[0]) {
+    console.log("sync-work24-jobs DEBUG first block:", first.blocks[0].slice(0, 1500));
+  }
   const totalPages = first.total
     ? Math.min(Math.ceil(first.total / PAGE_DISPLAY), MAX_PAGES)
     : FALLBACK_PAGE_COUNT;
