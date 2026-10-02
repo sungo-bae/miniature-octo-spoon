@@ -276,6 +276,7 @@ ${items}
 function buildSitemap(entries) {
   const staticUrls = [
     { loc: "/", changefreq: "daily", priority: "1.0" },
+    { loc: "/tips.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/partner.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/review.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/terms.html", changefreq: "yearly", priority: "0.3" },
