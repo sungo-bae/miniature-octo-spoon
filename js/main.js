@@ -149,9 +149,20 @@
     if (jobEmpty) jobEmpty.hidden = filtered.length !== 0;
   }
 
+  /* ---------------- 우대사항 상세 조회(지연 로딩) ----------------
+     work24 목록 API에는 우대사항이 없어서, 사용자가 공고를 실제로 열어볼 때만
+     그 1건에 한해 서버 함수(job-detail)를 통해 work24 상세 API를 조회합니다. */
+  function fetchJobPreferredInfo(jobId) {
+    if (!jobId) return Promise.resolve(null);
+    return fetch("/.netlify/functions/job-detail?id=" + encodeURIComponent(jobId))
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .catch(function () { return null; });
+  }
+
   /* ---------------- 일자리 상세 팝업 ---------------- */
   var jobModalBackdrop = document.getElementById("jobModalBackdrop");
   var jobModalLastFocused = null;
+  var jobModalPreferredRequestSeq = 0;
 
   function openJobModal(job) {
     if (!jobModalBackdrop) return;
@@ -167,11 +178,21 @@
     document.getElementById("jobModalAddress").textContent = job.address || "등록된 주소 정보가 없습니다.";
 
     var preferredWrap = document.getElementById("jobModalPreferredWrap");
+    var requestId = ++jobModalPreferredRequestSeq;
     if (job.preferred) {
       preferredWrap.hidden = false;
       document.getElementById("jobModalPreferred").textContent = job.preferred;
     } else if (preferredWrap) {
       preferredWrap.hidden = true;
+      if (job.id) {
+        fetchJobPreferredInfo(job.id).then(function (data) {
+          if (requestId !== jobModalPreferredRequestSeq) return; // 그 사이 다른 공고를 열었으면 무시
+          if (data && data.prefer) {
+            preferredWrap.hidden = false;
+            document.getElementById("jobModalPreferred").textContent = data.prefer;
+          }
+        });
+      }
     }
 
     var sourceEl = document.getElementById("jobModalSource");
@@ -415,4 +436,18 @@
       document.getElementById("jobs").scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
+
+  /* ---------------- 채용 상세 페이지(/jobs/*.html)의 우대사항 지연 로딩 ---------------- */
+  var preferredBox = document.getElementById("preferredBox");
+  if (preferredBox) {
+    var preferredJobId = preferredBox.getAttribute("data-job-id");
+    if (preferredJobId) {
+      fetchJobPreferredInfo(preferredJobId).then(function (data) {
+        if (data && data.prefer) {
+          document.getElementById("preferredText").textContent = data.prefer;
+          preferredBox.hidden = false;
+        }
+      });
+    }
+  }
 })();
