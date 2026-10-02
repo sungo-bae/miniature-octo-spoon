@@ -114,8 +114,8 @@ function buildJobPostingJsonLd(job, slug, fallbackDate) {
   return jsonLd;
 }
 
-function pageShell({ title, description, slug, bodyHtml, jsonLd }) {
-  const url = `${SITE_URL}/jobs/${slug}.html`;
+function pageShell({ title, description, slug, path, bodyHtml, jsonLd }) {
+  const url = `${SITE_URL}${path || `/jobs/${slug}.html`}`;
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -152,6 +152,8 @@ ${jsonLd ? `<script type="application/ld+json">\n${JSON.stringify(jsonLd, null, 
     <nav class="main-nav" id="mainNav" aria-label="주요 메뉴">
       <a href="/#jobs">일자리찾기</a>
       <a href="/#categories">직종별 보기</a>
+      <a href="/tips.html">구직 꿀팁</a>
+      <a href="/report.html">일자리 현황 리포트</a>
       <a href="/#how">이용방법</a>
       <a href="/#reviews">이용후기</a>
       <a href="/#notice">공지사항</a>
@@ -195,6 +197,8 @@ ${bodyHtml}
     </div>
     <div class="footer-links">
       <a href="/#top">홈으로</a>
+      <a href="/tips.html">구직 꿀팁</a>
+      <a href="/report.html">일자리 현황 리포트</a>
       <a href="/terms.html">이용약관</a>
       <a href="/privacy.html">개인정보처리방침</a>
       <a href="/partner.html">채용정보 등록 신청</a>
@@ -278,6 +282,132 @@ ${items}
   });
 }
 
+// 시니어 일자리 현황 리포트(/report.html)에서 씁니다. 전체 공고 원문을 다시 노출하는 게
+// 아니라, 지역별/직종별 건수만 집계해서 보여주는 통계 페이지입니다.
+
+const CATEGORY_LABELS = {
+  시설관리: "아파트·시설관리",
+  사무보조: "사무보조",
+  미화: "미화·청소",
+  조리: "급식·조리보조",
+  경비안전: "경비·안전관리",
+  사회공헌: "사회공헌활동"
+};
+
+function readStatsHistory(path) {
+  if (!existsSync(path)) return [];
+  try {
+    const data = JSON.parse(readFileSync(path, "utf-8"));
+    return Array.isArray(data.days) ? data.days : [];
+  } catch (err) {
+    console.warn(`generate-job-pages: ${path} 읽기 실패, 건너뜁니다.`, err.message);
+    return [];
+  }
+}
+
+function computeReportStats(jobs) {
+  const byRegion = {};
+  const byRegionDetail = {};
+  const byJob = {};
+  for (const j of jobs) {
+    if (j.region) byRegion[j.region] = (byRegion[j.region] || 0) + 1;
+    if (j.region && j.regionDetail) {
+      const key = `${j.region} ${j.regionDetail}`;
+      byRegionDetail[key] = (byRegionDetail[key] || 0) + 1;
+    }
+    if (j.job) byJob[j.job] = (byJob[j.job] || 0) + 1;
+  }
+  return { total: jobs.length, byRegion, byRegionDetail, byJob };
+}
+
+function sortedEntries(obj) {
+  return Object.entries(obj).sort((a, b) => b[1] - a[1]);
+}
+
+function barRow(label, count, max) {
+  const pct = max > 0 ? Math.round((count / max) * 100) : 0;
+  return `
+      <div style="margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:4px; font-weight:700;">
+          <span>${escapeHtml(label)}</span><span>${count.toLocaleString("ko-KR")}건</span>
+        </div>
+        <div style="background:var(--color-secondary-light); border-radius:999px; height:14px; overflow:hidden;">
+          <div style="background:var(--color-primary); width:${pct}%; height:100%;"></div>
+        </div>
+      </div>`;
+}
+
+function buildReportPage(stats, history) {
+  const regionEntries = sortedEntries(stats.byRegion);
+  const regionMax = regionEntries.length ? regionEntries[0][1] : 0;
+  const jobEntries = sortedEntries(stats.byJob);
+  const jobMax = jobEntries.length ? jobEntries[0][1] : 0;
+  const detailEntries = sortedEntries(stats.byRegionDetail).slice(0, 10);
+
+  const regionBars = regionEntries.map(([name, count]) => barRow(name, count, regionMax)).join("");
+  const jobBars = jobEntries.map(([name, count]) => barRow(CATEGORY_LABELS[name] || name, count, jobMax)).join("");
+  const detailRows = detailEntries
+    .map(([name, count], i) => `<p class="legal-item">${i + 1}. ${escapeHtml(name)} — ${count.toLocaleString("ko-KR")}건</p>`)
+    .join("\n");
+
+  let trendHtml;
+  if (history.length < 2) {
+    trendHtml = `<p>데이터 수집을 이제 막 시작했습니다. 매일 자동으로 쌓이는 중이니, 며칠 뒤 다시 찾아와 주시면 최근 추이를 보여드릴 수 있어요.</p>`;
+  } else {
+    const sorted = history.slice().sort((a, b) => a.date.localeCompare(b.date));
+    const latest = sorted[sorted.length - 1];
+    const prev = sorted[sorted.length - 2];
+    const diff = latest.total - prev.total;
+    const diffText = diff === 0 ? "변동 없음" : diff > 0 ? `${diff}건 증가` : `${Math.abs(diff)}건 감소`;
+    const recentRows = sorted
+      .slice(-7)
+      .map((d) => `<p class="legal-item">${escapeHtml(d.date)} — ${d.total.toLocaleString("ko-KR")}건</p>`)
+      .join("\n");
+    trendHtml = `
+      <p>${escapeHtml(prev.date)} ${prev.total.toLocaleString("ko-KR")}건 → ${escapeHtml(latest.date)} ${latest.total.toLocaleString("ko-KR")}건 (${diffText})</p>
+      <h3 style="font-size:1rem; margin-top:20px;">최근 ${Math.min(sorted.length, 7)}일 추이</h3>
+      ${recentRows}`;
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+
+  const bodyHtml = `
+      <h1 class="section-title" style="font-size:clamp(1.6rem,3.4vw,2.2rem);">시니어 일자리 현황 리포트</h1>
+      <p class="section-desc" style="margin-bottom:8px;">실버잡에 매일 자동으로 모이는 전국 시니어 채용정보(work24 공공데이터 + 지역업체 등록)를 바탕으로 만든 통계입니다. 기준일: ${today}</p>
+
+      <div class="legal-content">
+        <h2>전체 현황</h2>
+        <p>현재 실버잡에 등록된 시니어 채용정보는 총 <strong>${stats.total.toLocaleString("ko-KR")}건</strong>입니다.</p>
+
+        <h2>권역별 분포</h2>
+        ${regionBars || "<p>데이터가 아직 없습니다.</p>"}
+
+        <h2>전국 시/군/구 TOP 10</h2>
+        <p class="section-desc" style="margin-bottom:12px;">시니어 채용정보가 가장 많이 등록된 지역 순위입니다.</p>
+        ${detailRows || "<p>세부지역 데이터가 아직 충분하지 않습니다.</p>"}
+
+        <h2>직종별 분포</h2>
+        ${jobBars || "<p>데이터가 아직 없습니다.</p>"}
+
+        <h2>최근 추이</h2>
+        ${trendHtml}
+
+        <div class="legal-box">
+          <p style="margin:0;"><strong>데이터에 대해</strong></p>
+          <p style="margin:4px 0 0;">이 통계는 work24(고용24) 오픈API로 받아온 공공 채용정보와 실버잡에 직접 등록된 지역업체 채용정보를 합산한 것입니다. 숫자는 매일 자동 갱신되며, 실제 데이터를 그대로 집계한 것으로 꾸미거나 보정하지 않습니다.</p>
+        </div>
+      </div>
+`;
+
+  return pageShell({
+    title: "시니어 일자리 현황 리포트",
+    description: `실버잡이 매일 자동으로 모으는 전국 시니어 채용정보 ${stats.total.toLocaleString("ko-KR")}건을 지역별·직종별로 분석한 리포트입니다.`,
+    path: "/report.html",
+    bodyHtml,
+    jsonLd: null
+  });
+}
+
 function buildSitemap(entries) {
   const staticUrls = [
     { loc: "/", changefreq: "daily", priority: "1.0" },
@@ -286,6 +416,7 @@ function buildSitemap(entries) {
     { loc: "/review.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/terms.html", changefreq: "yearly", priority: "0.3" },
     { loc: "/privacy.html", changefreq: "yearly", priority: "0.3" },
+    { loc: "/report.html", changefreq: "daily", priority: "0.7" },
     { loc: "/jobs/index.html", changefreq: "daily", priority: "0.7" }
   ];
 
@@ -332,6 +463,10 @@ function main() {
 
   writeFileSync(join(JOBS_DIR, "index.html"), jobIndexPage(entries), "utf-8");
   writeFileSync(join(ROOT, "sitemap.xml"), buildSitemap(entries), "utf-8");
+
+  const reportStats = computeReportStats(valid);
+  const statsHistory = readStatsHistory(join(ROOT, "content", "jobs-stats-history.json"));
+  writeFileSync(join(ROOT, "report.html"), buildReportPage(reportStats, statsHistory), "utf-8");
 
   console.log(`generate-job-pages: ${entries.length}개 채용 상세 페이지 생성 완료`);
 }

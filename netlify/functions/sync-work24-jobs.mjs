@@ -16,6 +16,7 @@ import { extractTag } from "./lib/xml-utils.mjs";
 
 const GITHUB_API = "https://api.github.com";
 const TARGET_PATH = "content/jobs-external.json";
+const STATS_HISTORY_PATH = "content/jobs-stats-history.json";
 const WORK24_LIST_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L01.do";
 
 function splitWantedBlocks(xml) {
@@ -244,33 +245,78 @@ async function fetchWork24Jobs(apiKey) {
   });
 }
 
-async function commitToGitHub({ token, repo, branch, jobs }) {
+// GitHub Contents API에서 파일 1건을 읽어옵니다(sha + 내용). 없으면 null.
+async function getJsonFile({ token, repo, branch, path }) {
   const [owner, name] = repo.split("/");
-  const getUrl = `${GITHUB_API}/repos/${owner}/${name}/contents/${TARGET_PATH}?ref=${branch}`;
-
-  const getRes = await fetch(getUrl, {
+  const getUrl = `${GITHUB_API}/repos/${owner}/${name}/contents/${path}?ref=${branch}`;
+  const res = await fetch(getUrl, {
     headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" }
   });
-  if (!getRes.ok) throw new Error("failed to read existing file: " + getRes.status);
-  const existing = await getRes.json();
+  if (!res.ok) return null;
+  const file = await res.json();
+  try {
+    return { sha: file.sha, data: JSON.parse(Buffer.from(file.content, "base64").toString("utf-8")) };
+  } catch {
+    return { sha: file.sha, data: null };
+  }
+}
 
-  const content = JSON.stringify(
-    { jobs, syncedAt: new Date().toISOString(), note: "워크넷 Open API에서 자동으로 가져온 데이터입니다." },
-    null,
-    2
-  );
+// GitHub Contents API로 파일 하나를 덮어씁니다. sha를 이미 알고 있으면(바로 전에 읽었다면)
+// 다시 조회하지 않고 그대로 씁니다. jobs-external.json과 jobs-stats-history.json 양쪽에 씁니다.
+async function putJsonFile({ token, repo, branch, path, data, message, sha }) {
+  const [owner, name] = repo.split("/");
+  const content = JSON.stringify(data, null, 2);
 
-  const putRes = await fetch(`${GITHUB_API}/repos/${owner}/${name}/contents/${TARGET_PATH}`, {
+  const putRes = await fetch(`${GITHUB_API}/repos/${owner}/${name}/contents/${path}`, {
     method: "PUT",
     headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" },
     body: JSON.stringify({
-      message: "chore: sync jobs from work24 (automated)",
+      message,
       content: Buffer.from(content, "utf-8").toString("base64"),
-      sha: existing.sha,
+      ...(sha ? { sha } : {}),
       branch
     })
   });
-  if (!putRes.ok) throw new Error("failed to commit updated file: " + putRes.status);
+  if (!putRes.ok) throw new Error(`failed to commit ${path}: ` + putRes.status);
+}
+
+// 매일 KST 기준 날짜로 "그날의 지역별/직종별 공고 건수"만 아주 가볍게 누적 기록합니다.
+// 전체 공고를 저장하는 게 아니라 요약 숫자만 남기므로 파일이 거의 커지지 않고,
+// 몇 주~몇 달 쌓이면 "최근 한 달간 OO 지역 일자리 N% 증가" 같은 추세 분석에 씁니다.
+function kstDateString() {
+  const kst = new Date(Date.now() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().slice(0, 10);
+}
+
+function buildDailyStats(jobs) {
+  const byRegion = {};
+  const byJob = {};
+  for (const j of jobs) {
+    if (j.region) byRegion[j.region] = (byRegion[j.region] || 0) + 1;
+    if (j.job) byJob[j.job] = (byJob[j.job] || 0) + 1;
+  }
+  return { date: kstDateString(), total: jobs.length, byRegion, byJob };
+}
+
+async function updateStatsHistory({ token, repo, branch, jobs }) {
+  const existing = await getJsonFile({ token, repo, branch, path: STATS_HISTORY_PATH });
+  const history = existing && Array.isArray(existing.data?.days) ? existing.data.days : [];
+
+  const todayStats = buildDailyStats(jobs);
+  // 같은 날짜에 여러 번 동기화되면(수동 재실행 등) 그날 기록을 덮어씁니다(중복 누적 방지).
+  const idx = history.findIndex((d) => d.date === todayStats.date);
+  if (idx >= 0) history[idx] = todayStats;
+  else history.push(todayStats);
+
+  await putJsonFile({
+    token,
+    repo,
+    branch,
+    path: STATS_HISTORY_PATH,
+    data: { days: history, note: "일자별 공고 건수 요약 — 추세 분석용. 전체 공고 원문은 저장하지 않습니다." },
+    message: "chore: update daily job stats history (automated)",
+    sha: existing ? existing.sha : undefined
+  });
 }
 
 export default async () => {
@@ -286,7 +332,25 @@ export default async () => {
 
   try {
     const jobs = await fetchWork24Jobs(apiKey);
-    await commitToGitHub({ token: githubToken, repo, branch, jobs });
+
+    const existingTarget = await getJsonFile({ token: githubToken, repo, branch, path: TARGET_PATH });
+    await putJsonFile({
+      token: githubToken,
+      repo,
+      branch,
+      path: TARGET_PATH,
+      data: { jobs, syncedAt: new Date().toISOString(), note: "워크넷 Open API에서 자동으로 가져온 데이터입니다." },
+      message: "chore: sync jobs from work24 (automated)",
+      sha: existingTarget ? existingTarget.sha : undefined
+    });
+
+    // 통계 이력 저장은 추세 분석용 부가 기능이라, 혹시 실패해도 본 동기화 결과에는 영향 주지 않습니다.
+    try {
+      await updateStatsHistory({ token: githubToken, repo, branch, jobs });
+    } catch (statsErr) {
+      console.error("sync-work24-jobs: 통계 이력 저장 실패(본 동기화는 정상 완료):", statsErr);
+    }
+
     console.log(`sync-work24-jobs: ${jobs.length}건 동기화 완료`);
     return new Response(`synced ${jobs.length} jobs`, { status: 200 });
   } catch (err) {
