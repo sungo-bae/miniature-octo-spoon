@@ -269,11 +269,17 @@
         </div>
       </div>
 
+      <p class="job-list-status" id="jobListStatus" aria-live="polite">일자리를 불러오는 중...</p>
+
       <div class="job-grid" id="jobGrid">
         <!-- Job cards are rendered by js/main.js from mock data -->
       </div>
 
       <p class="empty-state" id="jobEmpty" hidden>선택하신 조건의 일자리가 아직 없어요. 조건을 바꿔서 다시 찾아보세요.</p>
+
+      <div class="job-list-more" id="jobListMoreWrap" hidden>
+        <button type="button" class="btn btn-outline btn-lg" id="jobListMoreBtn">다음 일자리 더 보기</button>
+      </div>
     </div>
   </section>
 

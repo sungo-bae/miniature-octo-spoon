@@ -83,6 +83,9 @@
 
   var jobGrid = document.getElementById("jobGrid");
   var jobEmpty = document.getElementById("jobEmpty");
+  var jobListStatus = document.getElementById("jobListStatus");
+  var jobListMoreWrap = document.getElementById("jobListMoreWrap");
+  var jobListMoreBtn = document.getElementById("jobListMoreBtn");
 
   // 채용공고별 고유 URL(/jobs/<slug>.html)을 만드는 해시 함수.
   // scripts/generate-job-pages.mjs가 똑같은 함수로 정적 페이지를 생성하므로,
@@ -124,7 +127,10 @@
     );
   }
 
-  var lastFilteredJobs = [];
+  var lastFilteredJobs = []; // 현재 화면에 실제로 그려진(= 더보기로 누적된) 목록
+  var currentFullList = []; // 현재 필터 조건에 맞는 전체 목록(정렬된 상태)
+  var visibleCount = 0; // currentFullList 중 몇 건째까지 보여주고 있는지
+  var JOB_LIST_PAGE_SIZE = 24; // 한 번에 보여줄 개수. 공고가 수천 건이라 한꺼번에 다 그리면 느려집니다.
 
   // 나이 대신 "몸을 얼마나 쓰는 일인지"로 찾을 수 있도록 직종을 강도별로 묶은 표
   var DIFFICULTY_MAP = {
@@ -132,6 +138,28 @@
     medium: { label: "보통 활동", jobs: ["조리", "미화"] },
     active: { label: "활동적인 일", jobs: ["시설관리", "경비안전"] }
   };
+
+  // "2026-09-30" 형태의 postedDate/datePosted를 비교 가능한 값으로 바꿉니다.
+  // 날짜 정보가 없는 공고는 맨 뒤로 보냅니다(허위로 "최신"처럼 보이지 않도록).
+  function jobSortTime(job) {
+    var raw = job.postedDate || job.datePosted || "";
+    var t = Date.parse(raw);
+    return isNaN(t) ? -Infinity : t;
+  }
+
+  function renderVisiblePage() {
+    if (!jobGrid) return;
+    var visible = currentFullList.slice(0, visibleCount);
+    lastFilteredJobs = visible;
+    jobGrid.innerHTML = visible.map(jobCardHTML).join("");
+
+    if (jobListStatus) {
+      jobListStatus.hidden = currentFullList.length === 0;
+      jobListStatus.textContent = "전체 " + currentFullList.length.toLocaleString("ko-KR") + "건 중 " +
+        visible.length.toLocaleString("ko-KR") + "건 표시 중";
+    }
+    if (jobListMoreWrap) jobListMoreWrap.hidden = visible.length >= currentFullList.length;
+  }
 
   function renderJobs(filterRegion, filterJob) {
     if (!jobGrid) return;
@@ -142,11 +170,20 @@
       var jobOk = !jobList || jobList.indexOf(job.job) !== -1;
       return regionOk && jobOk;
     });
+    filtered.sort(function (a, b) { return jobSortTime(b) - jobSortTime(a); });
 
-    lastFilteredJobs = filtered;
-    jobGrid.innerHTML = filtered.map(jobCardHTML).join("");
+    currentFullList = filtered;
+    visibleCount = Math.min(JOB_LIST_PAGE_SIZE, filtered.length); // 새 검색이므로 처음 페이지부터 다시 보여줍니다.
+    renderVisiblePage();
 
     if (jobEmpty) jobEmpty.hidden = filtered.length !== 0;
+  }
+
+  if (jobListMoreBtn) {
+    jobListMoreBtn.addEventListener("click", function () {
+      visibleCount = Math.min(visibleCount + JOB_LIST_PAGE_SIZE, currentFullList.length);
+      renderVisiblePage();
+    });
   }
 
   /* ---------------- 우대사항 상세 조회(지연 로딩) ----------------
