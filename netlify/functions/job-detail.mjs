@@ -19,14 +19,16 @@ const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6시간
 export default async (req) => {
   const url = new URL(req.url);
   const id = (url.searchParams.get("id") || "").trim();
-  if (!id) {
+  const infoSvc = (url.searchParams.get("infoSvc") || "").trim();
+  if (!id || !infoSvc) {
     return new Response(JSON.stringify({ prefer: "" }), {
       status: 400,
       headers: { "Content-Type": "application/json" }
     });
   }
 
-  const cached = cache.get(id);
+  const cacheKey = id + "|" + infoSvc;
+  const cached = cache.get(cacheKey);
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
     return new Response(JSON.stringify(cached.data), {
       status: 200,
@@ -48,6 +50,7 @@ export default async (req) => {
     apiUrl.searchParams.set("callTp", "D");
     apiUrl.searchParams.set("returnType", "XML");
     apiUrl.searchParams.set("wantedAuthNo", id);
+    apiUrl.searchParams.set("infoSvc", infoSvc);
 
     const res = await fetch(apiUrl.toString());
     if (!res.ok) throw new Error("work24 상세 API 요청 실패: " + res.status);
@@ -64,7 +67,7 @@ export default async (req) => {
       });
     }
 
-    cache.set(id, { at: Date.now(), data });
+    cache.set(cacheKey, { at: Date.now(), data });
 
     return new Response(JSON.stringify(data), {
       status: 200,

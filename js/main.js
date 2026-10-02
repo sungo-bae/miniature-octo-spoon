@@ -152,9 +152,9 @@
   /* ---------------- 우대사항 상세 조회(지연 로딩) ----------------
      work24 목록 API에는 우대사항이 없어서, 사용자가 공고를 실제로 열어볼 때만
      그 1건에 한해 서버 함수(job-detail)를 통해 work24 상세 API를 조회합니다. */
-  function fetchJobPreferredInfo(jobId) {
-    if (!jobId) return Promise.resolve(null);
-    return fetch("/.netlify/functions/job-detail?id=" + encodeURIComponent(jobId))
+  function fetchJobPreferredInfo(jobId, infoSvc) {
+    if (!jobId || !infoSvc) return Promise.resolve(null);
+    return fetch("/.netlify/functions/job-detail?id=" + encodeURIComponent(jobId) + "&infoSvc=" + encodeURIComponent(infoSvc))
       .then(function (res) { return res.ok ? res.json() : null; })
       .catch(function () { return null; });
   }
@@ -184,8 +184,8 @@
       document.getElementById("jobModalPreferred").textContent = job.preferred;
     } else if (preferredWrap) {
       preferredWrap.hidden = true;
-      if (job.id) {
-        fetchJobPreferredInfo(job.id).then(function (data) {
+      if (job.id && job.infoSvc) {
+        fetchJobPreferredInfo(job.id, job.infoSvc).then(function (data) {
           if (requestId !== jobModalPreferredRequestSeq) return; // 그 사이 다른 공고를 열었으면 무시
           if (data && data.prefer) {
             preferredWrap.hidden = false;
@@ -441,8 +441,9 @@
   var preferredBox = document.getElementById("preferredBox");
   if (preferredBox) {
     var preferredJobId = preferredBox.getAttribute("data-job-id");
-    if (preferredJobId) {
-      fetchJobPreferredInfo(preferredJobId).then(function (data) {
+    var preferredInfoSvc = preferredBox.getAttribute("data-job-infosvc");
+    if (preferredJobId && preferredInfoSvc) {
+      fetchJobPreferredInfo(preferredJobId, preferredInfoSvc).then(function (data) {
         if (data && data.prefer) {
           document.getElementById("preferredText").textContent = data.prefer;
           preferredBox.hidden = false;

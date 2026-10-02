@@ -108,6 +108,7 @@ function mapWantedBlock(block) {
 
   return {
     id: extractTag(block, "wantedAuthNo"),
+    infoSvc: extractTag(block, "infoSvc"),
     title,
     company: extractTag(block, "company"),
     region: mapRegion(extractTag(block, "region")),

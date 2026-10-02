@@ -225,7 +225,7 @@ function jobDetailPage(job, slug, fallbackDate) {
 
       ${job.description ? `<h2 style="font-size:1.1rem;">상세 설명</h2><p>${escapeHtml(job.description)}</p>` : ""}
       ${job.requirements ? `<h2 style="font-size:1.1rem;">자격 요건</h2><p>${escapeHtml(job.requirements)}</p>` : ""}
-      ${job.preferred ? `<h2 style="font-size:1.1rem;">우대 사항</h2><p>${escapeHtml(job.preferred)}</p>` : job.id ? `<div id="preferredBox" data-job-id="${escapeHtml(job.id)}" hidden><h2 style="font-size:1.1rem;">우대 사항</h2><p id="preferredText"></p></div>` : ""}
+      ${job.preferred ? `<h2 style="font-size:1.1rem;">우대 사항</h2><p>${escapeHtml(job.preferred)}</p>` : job.id && job.infoSvc ? `<div id="preferredBox" data-job-id="${escapeHtml(job.id)}" data-job-infosvc="${escapeHtml(job.infoSvc)}" hidden><h2 style="font-size:1.1rem;">우대 사항</h2><p id="preferredText"></p></div>` : ""}
       ${job.address ? `<h2 style="font-size:1.1rem;">근무지 주소</h2><p>${escapeHtml(job.address)}</p>` : ""}
       ${job.source ? `<p style="color:var(--color-text-muted); font-size:.9rem; margin-top:24px;">출처: ${escapeHtml(job.source)}</p>` : ""}
 
