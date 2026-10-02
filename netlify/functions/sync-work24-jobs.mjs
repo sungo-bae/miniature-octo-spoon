@@ -135,7 +135,12 @@ function mapWantedBlock(block) {
 
 const PAGE_DISPLAY = 100; // work24 쪽에서 한 페이지당 허용하는 최대 건수
 const FALLBACK_PAGE_COUNT = 5; // total을 못 읽었을 때 대비한 기본값
-const MAX_PAGES = 20; // 안전장치: 아무리 전체 건수가 많아도 한 번에 최대 이만큼만 조회 (최대 2000건)
+const MAX_PAGES = 150; // 상한선(최대 15,000건) — 보통은 아래 시간 예산에 먼저 걸립니다
+const BATCH_SIZE = 20; // 한 번에 동시 요청할 페이지 수 (20개 동시 요청은 안정적으로 동작 확인됨)
+const FETCH_TIME_BUDGET_MS = 7500; // Netlify 함수 실행시간 제한에 걸리지 않도록, 조회 단계에 쓸 시간을
+// 미리 정해두고 그 안에서 되는 만큼만 가져옵니다(이후 GitHub 커밋 단계에 쓸 여유를 남겨둠).
+// 가져오다 만 날도 있을 수 있지만, 커밋은 조회가 다 끝난 뒤 한 번에 하므로 실패해도 그날 하루
+// 갱신이 건너뛰어질 뿐 데이터가 깨지지 않습니다 — 다음날 다시 시도됩니다.
 
 async function fetchWork24Page(apiKey, page) {
   const url = new URL(WORK24_LIST_URL);
@@ -157,20 +162,41 @@ async function fetchWork24Page(apiKey, page) {
 }
 
 async function fetchWork24Jobs(apiKey) {
-  // 1페이지를 먼저 조회해 전체 건수(total)를 확인한 뒤, 그만큼만 추가로 가져옵니다.
+  const startedAt = Date.now();
+
+  // 1페이지를 먼저 조회해 전체 건수(total)를 확인합니다.
   // (전체 건수를 못 읽는 예외 상황이면 기존처럼 고정 페이지 수로 대체합니다.)
   const first = await fetchWork24Page(apiKey, 1);
   const totalPages = first.total
     ? Math.min(Math.ceil(first.total / PAGE_DISPLAY), MAX_PAGES)
     : FALLBACK_PAGE_COUNT;
-  console.log(`sync-work24-jobs: work24 전체 ${first.total}건 중 ${totalPages}페이지(최대 ${totalPages * PAGE_DISPLAY}건) 조회`);
 
-  const pagePromises = [];
-  for (let page = 2; page <= totalPages; page++) {
-    pagePromises.push(fetchWork24Page(apiKey, page));
+  // 남은 페이지를 BATCH_SIZE개씩 동시 조회하면서, 매 묶음 전에 남은 시간 예산을 확인합니다.
+  // 시간이 다 되면 그때까지 모은 페이지만 쓰고 더 요청하지 않습니다.
+  const pageResults = [first];
+  let nextPage = 2;
+  let stoppedEarly = false;
+  while (nextPage <= totalPages) {
+    if (Date.now() - startedAt > FETCH_TIME_BUDGET_MS) {
+      stoppedEarly = true;
+      break;
+    }
+    const batchEnd = Math.min(nextPage + BATCH_SIZE - 1, totalPages);
+    const batchPromises = [];
+    for (let page = nextPage; page <= batchEnd; page++) {
+      batchPromises.push(fetchWork24Page(apiKey, page));
+    }
+    pageResults.push(...(await Promise.all(batchPromises)));
+    nextPage = batchEnd + 1;
   }
-  const rest = await Promise.all(pagePromises);
-  const allBlocks = [first, ...rest].flatMap((p) => p.blocks);
+
+  const fetchedPages = pageResults.length;
+  console.log(
+    `sync-work24-jobs: work24 전체 ${first.total}건 중 ${fetchedPages}페이지(최대 ${fetchedPages * PAGE_DISPLAY}건) 조회` +
+      (stoppedEarly ? ` — 시간 예산(${FETCH_TIME_BUDGET_MS}ms) 도달로 중단` : "")
+  );
+
+  const allBlocks = pageResults.flatMap((p) => p.blocks);
 
   // 페이지 간 중복(원문 링크 기준)을 제거합니다.
   const seen = new Set();
