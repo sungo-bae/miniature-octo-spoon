@@ -152,6 +152,7 @@ ${jsonLd ? `<script type="application/ld+json">\n${JSON.stringify(jsonLd, null, 
     <nav class="main-nav" id="mainNav" aria-label="주요 메뉴">
       <a href="/#jobs">일자리찾기</a>
       <a href="/#categories">직종별 보기</a>
+      <a href="/about.html">실버잡 소개</a>
       <a href="/tips.html">구직 꿀팁</a>
       <a href="/report.html">현황 리포트</a>
       <a href="/#how">이용방법</a>
@@ -198,6 +199,7 @@ ${bodyHtml}
     </div>
     <div class="footer-links">
       <a href="/#top">홈으로</a>
+      <a href="/about.html">실버잡 소개</a>
       <a href="/tips.html">구직 꿀팁</a>
       <a href="/report.html">현황 리포트</a>
       <a href="/terms.html">이용약관</a>
@@ -450,6 +452,7 @@ function buildReportPage(stats, history) {
 function buildSitemap(entries) {
   const staticUrls = [
     { loc: "/", changefreq: "daily", priority: "1.0" },
+    { loc: "/about.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/tips.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/partner.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/review.html", changefreq: "monthly", priority: "0.6" },
