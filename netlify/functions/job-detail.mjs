@@ -1,15 +1,23 @@
-// 공고 1건의 "우대사항"을 그 공고를 실제로 열어보는 사용자에게만, 그 순간에 불러오는 함수입니다.
-// 목록 동기화(sync-work24-jobs)는 work24 "목록" API만 쓰는데, 우대사항은 목록 API에 없고
-// 공고별 "상세정보" API에서만 내려줍니다. 전체 공고(하루 약 200여 건)를 매번 상세 조회하면
-// 호출량이 크게 늘어 함수 실행 시간/데이터포털 일일 호출 한도 위험이 커지므로,
-// 사용자가 실제로 공고 상세를 열어볼 때만 그 1건에 대해서만 호출합니다.
+// 공고 1건의 "우대사항(관련 자격증)"을 그 공고를 실제로 열어보는 사용자에게만,
+// 그 순간에 불러오는 함수입니다.
+// 목록 동기화(sync-work24-jobs)는 work24 "목록" API만 쓰는데, 관련 자격증 정보는
+// 목록 API에 없고 공고별 "상세정보" API의 certificate 필드에만 내려줍니다.
+// 전체 공고(하루 약 200여 건)를 매번 상세 조회하면 호출량이 크게 늘어 함수 실행
+// 시간/데이터포털 일일 호출 한도 위험이 커지므로, 사용자가 실제로 공고 상세를
+// 열어볼 때만 그 1건에 대해서만 호출합니다.
 //
-// 요청: GET /.netlify/functions/job-detail?id=<wantedAuthNo>
-// 응답: { prefer: "우대사항 원문" } (정보가 없으면 빈 문자열 — 없는 내용을 지어내지 않습니다)
+// 요청: GET /.netlify/functions/job-detail?id=<wantedAuthNo>&infoSvc=<infoSvc>
+// 응답: { prefer: "자격증 A · 자격증 B" } (정보가 없으면 빈 문자열 — 없는 내용을 지어내지 않습니다)
 
 import { extractTag } from "./lib/xml-utils.mjs";
 
 const WORK24_DETAIL_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210D01.do";
+
+function formatCertificate(raw) {
+  if (!raw) return "";
+  const list = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return list.length ? "자격증: " + list.join(" · ") : "";
+}
 
 // 같은 공고를 여러 사용자가 연달아 열어볼 때 매번 work24에 재요청하지 않도록,
 // 이 함수 인스턴스가 살아있는 동안만 유지되는 아주 가벼운 메모리 캐시입니다.
@@ -56,24 +64,7 @@ export default async (req) => {
     if (!res.ok) throw new Error("work24 상세 API 요청 실패: " + res.status);
     const xml = await res.text();
 
-    const data = { prefer: extractTag(xml, "prefer") };
-
-    // 임시 디버그 모드: ?debug=1을 붙이면 work24가 실제로 내려준 필드 중 값이 채워진 것만
-    // "태그명: 값" 형태로 보여줍니다. 우대사항에 해당하는 올바른 태그명을 확인한 뒤 이 블록은 제거할 예정입니다.
-    if (url.searchParams.get("debug") === "1") {
-      const leafFields = {};
-      const leafTagRe = /<(\w+)>([^<]*)<\/\1>/g;
-      let m;
-      while ((m = leafTagRe.exec(xml))) {
-        const val = m[2].trim();
-        if (val) leafFields[m[1]] = val;
-      }
-      return new Response(JSON.stringify({ prefer: data.prefer, leafFields }, null, 2), {
-        status: 200,
-        headers: { "Content-Type": "application/json" }
-      });
-    }
-
+    const data = { prefer: formatCertificate(extractTag(xml, "certificate")) };
     cache.set(cacheKey, { at: Date.now(), data });
 
     return new Response(JSON.stringify(data), {
