@@ -77,29 +77,42 @@ function formatPay(raw) {
   return raw;
 }
 
-// regDt(등록일자, YYYYMMDD 또는 YYYY-MM-DD 형태로 추정) 기준 최근 3일 이내면 신규 표시
+// work24가 실제로 내려주는 regDt/closeDt는 "26-10-02"처럼 연도가 2자리입니다.
+// (YYYYMMDD 8자리로 가정했던 예전 코드는 숫자만 뽑으면 6자리가 되어 항상 빈 값을
+// 반환했고, 그 때문에 등록일/신규표시/마감일이 전부 비어있던 버그가 있었습니다.)
+function parseWork24Date(raw) {
+  if (!raw) return null;
+  const m = String(raw).match(/(\d{2,4})-(\d{2})-(\d{2})/) || String(raw).match(/(\d{4})(\d{2})(\d{2})/);
+  if (!m) return null;
+  let year = m[1];
+  if (year.length === 2) year = "20" + year;
+  return { year, month: m[2], day: m[3] };
+}
+
+// regDt 기준 최근 3일 이내면 신규 표시
 function isRecent(regDt) {
-  if (!regDt) return false;
-  const digits = regDt.replace(/[^0-9]/g, "");
-  if (digits.length < 8) return false;
-  const y = digits.slice(0, 4), m = digits.slice(4, 6), d = digits.slice(6, 8);
-  const posted = new Date(`${y}-${m}-${d}T00:00:00+09:00`);
+  const d = parseWork24Date(regDt);
+  if (!d) return false;
+  const posted = new Date(`${d.year}-${d.month}-${d.day}T00:00:00+09:00`);
   if (isNaN(posted.getTime())) return false;
   const diffDays = (Date.now() - posted.getTime()) / (1000 * 60 * 60 * 24);
   return diffDays <= 3;
 }
 
+// closeDt가 "채용시까지 26-10-16"처럼 오면 실제 마감일이 아니라 "결원이 채워질 때까지
+// 상시 채용"이라는 뜻입니다(뒤 날짜는 내부 접수관리용). 이걸 마감일처럼 보여주면
+// 상시채용 공고에 없는 마감일을 지어내는 셈이라, 이 경우는 빈 값으로 둡니다
+// (화면에서는 "상시채용"으로 표시됨).
 function formatDeadline(closeDt) {
-  const digits = (closeDt || "").replace(/[^0-9]/g, "");
-  if (digits.length < 8) return "";
-  return `${digits.slice(0, 4)}.${digits.slice(4, 6)}.${digits.slice(6, 8)}`;
+  if (!closeDt || closeDt.includes("채용시까지")) return "";
+  const d = parseWork24Date(closeDt);
+  return d ? `${d.year}.${d.month}.${d.day}` : "";
 }
 
 // 구글 일자리 검색(JobPosting)의 datePosted에 쓸 ISO 날짜(YYYY-MM-DD)
 function formatIsoDate(rawDt) {
-  const digits = (rawDt || "").replace(/[^0-9]/g, "");
-  if (digits.length < 8) return "";
-  return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
+  const d = parseWork24Date(rawDt);
+  return d ? `${d.year}-${d.month}-${d.day}` : "";
 }
 
 function mapWantedBlock(block) {
@@ -167,10 +180,6 @@ async function fetchWork24Jobs(apiKey) {
   // 1페이지를 먼저 조회해 전체 건수(total)를 확인합니다.
   // (전체 건수를 못 읽는 예외 상황이면 기존처럼 고정 페이지 수로 대체합니다.)
   const first = await fetchWork24Page(apiKey, 1);
-  // 임시 디버그: datePosted가 전부 비어있는 문제의 원인 확인용 — 원인 파악 후 제거할 코드입니다.
-  if (first.blocks[0]) {
-    console.log("sync-work24-jobs DEBUG first block:", first.blocks[0].slice(0, 1500));
-  }
   const totalPages = first.total
     ? Math.min(Math.ceil(first.total / PAGE_DISPLAY), MAX_PAGES)
     : FALLBACK_PAGE_COUNT;
