@@ -58,10 +58,17 @@ export default async (req) => {
 
     const data = { prefer: extractTag(xml, "prefer") };
 
-    // 임시 디버그 모드: ?debug=1을 붙이면 work24가 실제로 내려준 원문 XML을 그대로 보여줍니다.
-    // 올바른 필드명을 확인한 뒤 이 블록은 제거할 예정입니다.
+    // 임시 디버그 모드: ?debug=1을 붙이면 work24가 실제로 내려준 필드 중 값이 채워진 것만
+    // "태그명: 값" 형태로 보여줍니다. 우대사항에 해당하는 올바른 태그명을 확인한 뒤 이 블록은 제거할 예정입니다.
     if (url.searchParams.get("debug") === "1") {
-      return new Response(JSON.stringify({ ...data, rawXml: xml.slice(0, 4000) }, null, 2), {
+      const leafFields = {};
+      const leafTagRe = /<(\w+)>([^<]*)<\/\1>/g;
+      let m;
+      while ((m = leafTagRe.exec(xml))) {
+        const val = m[2].trim();
+        if (val) leafFields[m[1]] = val;
+      }
+      return new Response(JSON.stringify({ prefer: data.prefer, leafFields }, null, 2), {
         status: 200,
         headers: { "Content-Type": "application/json" }
       });
