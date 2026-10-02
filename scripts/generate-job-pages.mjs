@@ -294,6 +294,27 @@ const CATEGORY_LABELS = {
   사회공헌: "사회공헌활동"
 };
 
+// 직종별 준비 방법 — 실제 통계로 검증되지 않은 수치(예: "합격률")는 쓰지 않고,
+// 일반적으로 알려진 준비 요령만 담습니다. 공고량 순위처럼 데이터로 확인되는
+// 부분은 jobRankNote()에서 그때그때 계산해서 따로 붙입니다.
+const CATEGORY_GUIDE = {
+  경비안전: "경비지도사·소방안전관리자 자격증이 있으면 지원 시 유리합니다. 2교대·3교대 근무가 많으니 체력과 근무 형태를 먼저 확인해보세요.",
+  미화: "특별한 자격증 없이 지원 가능한 경우가 많습니다. 성실하고 꾸준한 근무 이력을 이력서에 강조해보세요.",
+  조리: "조리기능사 자격증이나 위생교육 이수 경험이 있으면 가점 요인이 됩니다. 단체급식 경험을 구체적으로 적어주세요.",
+  사무보조: "기본적인 컴퓨터 활용(한글·엑셀) 능력과 친절한 응대 태도가 중요합니다. 전화 응대나 문서 작성 경험을 어필해보세요.",
+  시설관리: "전기·소방·승강기 관련 자격증이 있으면 아파트·건물 관리 분야에서 크게 유리합니다. 주택관리사(보) 자격증도 도움이 됩니다.",
+  사회공헌: "요양보호사·노인맞춤돌봄 관련 자격증이 있으면 선택의 폭이 넓어지지만, 자격증 없이 지원 가능한 활동도 많습니다."
+};
+
+// 지금 집계 결과에서 이 직종이 몇 번째로 많은지에 따라 문구를 다르게 붙입니다.
+// (고정된 멘트가 아니라, 매 빌드마다 실제 순위를 다시 계산합니다.)
+function jobRankNote(index, total) {
+  if (total <= 1) return "";
+  if (index === 0) return "실버잡에 가장 많이 올라오는 분야입니다.";
+  if (index === total - 1) return "상대적으로 공고 수가 적은 편이니, 보이면 빠르게 지원해보세요.";
+  return "";
+}
+
 function readStatsHistory(path) {
   if (!existsSync(path)) return [];
   try {
@@ -324,10 +345,10 @@ function sortedEntries(obj) {
   return Object.entries(obj).sort((a, b) => b[1] - a[1]);
 }
 
-function barRow(label, count, max) {
+function barRow(label, count, max, marginBottom) {
   const pct = max > 0 ? Math.round((count / max) * 100) : 0;
   return `
-      <div style="margin-bottom:14px;">
+      <div style="margin-bottom:${marginBottom == null ? 14 : marginBottom}px;">
         <div style="display:flex; justify-content:space-between; gap:12px; margin-bottom:4px; font-weight:700;">
           <span>${escapeHtml(label)}</span><span>${count.toLocaleString("ko-KR")}건</span>
         </div>
@@ -335,6 +356,20 @@ function barRow(label, count, max) {
           <div style="background:var(--color-primary); width:${pct}%; height:100%;"></div>
         </div>
       </div>`;
+}
+
+// 직종 막대그래프 밑에, 그 직종을 준비하는 방법을 바로 붙여서 보여줍니다.
+function jobCategoryBlock(name, count, max, index, total) {
+  const guide = CATEGORY_GUIDE[name];
+  const rankNote = jobRankNote(index, total);
+  const tip = [guide, rankNote].filter(Boolean).join(" ");
+  return (
+    barRow(CATEGORY_LABELS[name] || name, count, max, tip ? 6 : 14) +
+    (tip
+      ? `
+      <p style="margin:0 0 20px; color:var(--color-text-muted); font-size:.95rem;">💡 <strong>준비 방법:</strong> ${escapeHtml(tip)}</p>`
+      : "")
+  );
 }
 
 function buildReportPage(stats, history) {
@@ -345,7 +380,9 @@ function buildReportPage(stats, history) {
   const detailEntries = sortedEntries(stats.byRegionDetail).slice(0, 10);
 
   const regionBars = regionEntries.map(([name, count]) => barRow(name, count, regionMax)).join("");
-  const jobBars = jobEntries.map(([name, count]) => barRow(CATEGORY_LABELS[name] || name, count, jobMax)).join("");
+  const jobBars = jobEntries
+    .map(([name, count], i) => jobCategoryBlock(name, count, jobMax, i, jobEntries.length))
+    .join("");
   const detailRows = detailEntries
     .map(([name, count], i) => `<p class="legal-item">${i + 1}. ${escapeHtml(name)} — ${count.toLocaleString("ko-KR")}건</p>`)
     .join("\n");
@@ -386,7 +423,8 @@ function buildReportPage(stats, history) {
         <p class="section-desc" style="margin-bottom:12px;">시니어 채용정보가 가장 많이 등록된 지역 순위입니다.</p>
         ${detailRows || "<p>세부지역 데이터가 아직 충분하지 않습니다.</p>"}
 
-        <h2>직종별 분포</h2>
+        <h2>직종별 분포 · 준비 방법</h2>
+        <p class="section-desc" style="margin-bottom:12px;">각 직종을 준비할 때 참고할 만한 내용을 함께 정리했습니다. 더 자세한 구직 요령은 <a href="/tips.html" style="text-decoration:underline;">구직 꿀팁</a> 페이지에서 확인하실 수 있습니다.</p>
         ${jobBars || "<p>데이터가 아직 없습니다.</p>"}
 
         <h2>최근 추이</h2>
