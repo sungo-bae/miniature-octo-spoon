@@ -23,6 +23,11 @@ function splitWantedBlocks(xml) {
   return matches || [];
 }
 
+function extractTotal(xml) {
+  const n = parseInt(extractTag(xml, "total"), 10);
+  return isNaN(n) ? 0 : n;
+}
+
 // 워크넷 지역 텍스트 -> 사이트에서 쓰는 7개 권역으로 단순 매핑 (필요시 보완)
 function mapRegion(rawRegion) {
   if (!rawRegion) return "";
@@ -38,10 +43,10 @@ function mapRegion(rawRegion) {
   return "";
 }
 
+// 1차 필터는 work24 API 자체의 "(준)고령자(50세 이상) 우대" 조건(pfPreferential=8)이
+// 맡고 있습니다(아래 fetchWork24Page 참고). 이 함수는 그 이후에도 혹시 섞여 들어올 수 있는,
 // 제목만으로도 시니어 일자리와 무관하다고 확신할 수 있는 공고(어린이집/유치원 교사, 수영강사,
-// 생산직, 일반 제조·건설·영업 관리직 등)는 업종명(indTpNm)에 "복지"·"안전" 같은 단어가 섞여
-// 있어도 무조건 제외합니다.
-// (예: 어린이집은 통계청 업종분류상 "사회복지 서비스업"에 속해 아래 카테고리 매칭에서 오탐이 남)
+// 생산직, 일반 제조·건설·영업 관리직 등)를 한 번 더 걸러내는 보조 안전장치입니다.
 function isSeniorUnrelated(title) {
   return /어린이집|유치원|보육교사|보육사|수영강사|생산직|생산팀|품질관리|자동화설비|토목|엔지니어|시공|건설산업안전|산업안전관리자|공장|폐수처리|기술영업|영업관리|현장관리자|설계/.test(title || "");
 }
@@ -129,7 +134,8 @@ function mapWantedBlock(block) {
 }
 
 const PAGE_DISPLAY = 100; // work24 쪽에서 한 페이지당 허용하는 최대 건수
-const PAGE_COUNT = 5; // startPage 1~5를 병렬로 조회 (최대 500건 원본 데이터 확보)
+const FALLBACK_PAGE_COUNT = 5; // total을 못 읽었을 때 대비한 기본값
+const MAX_PAGES = 20; // 안전장치: 아무리 전체 건수가 많아도 한 번에 최대 이만큼만 조회 (최대 2000건)
 
 async function fetchWork24Page(apiKey, page) {
   const url = new URL(WORK24_LIST_URL);
@@ -138,22 +144,33 @@ async function fetchWork24Page(apiKey, page) {
   url.searchParams.set("returnType", "XML");
   url.searchParams.set("startPage", String(page));
   url.searchParams.set("display", String(PAGE_DISPLAY));
+  // work24가 공식적으로 "(준)고령자(50세 이상) 우대"로 분류한 공고만 받아옵니다.
+  // 기존에는 제목 키워드로 시니어 일자리 여부를 추측했는데, work24가 이미 이 조건을
+  // 공고 등록 시점에 분류해두고 있어서 훨씬 정확하고, 전체 풀도 크게 줄어듭니다
+  // (전국 13만여 건 중 일부라, 제주처럼 공고량이 적은 지역도 누락될 확률이 낮아집니다).
+  url.searchParams.set("pfPreferential", "8");
 
   const res = await fetch(url.toString());
   if (!res.ok) throw new Error("work24 API request failed: " + res.status);
   const xml = await res.text();
-  return splitWantedBlocks(xml);
+  return { blocks: splitWantedBlocks(xml), total: extractTotal(xml) };
 }
 
 async function fetchWork24Jobs(apiKey) {
-  // 페이지당 최대 건수(100)만 요청하면 전체 중 일부만 보이므로,
-  // startPage를 바꿔가며 여러 페이지를 병렬로 가져와 채용정보 풀을 넓힙니다.
+  // 1페이지를 먼저 조회해 전체 건수(total)를 확인한 뒤, 그만큼만 추가로 가져옵니다.
+  // (전체 건수를 못 읽는 예외 상황이면 기존처럼 고정 페이지 수로 대체합니다.)
+  const first = await fetchWork24Page(apiKey, 1);
+  const totalPages = first.total
+    ? Math.min(Math.ceil(first.total / PAGE_DISPLAY), MAX_PAGES)
+    : FALLBACK_PAGE_COUNT;
+  console.log(`sync-work24-jobs: work24 전체 ${first.total}건 중 ${totalPages}페이지(최대 ${totalPages * PAGE_DISPLAY}건) 조회`);
+
   const pagePromises = [];
-  for (let page = 1; page <= PAGE_COUNT; page++) {
+  for (let page = 2; page <= totalPages; page++) {
     pagePromises.push(fetchWork24Page(apiKey, page));
   }
-  const pages = await Promise.all(pagePromises);
-  const allBlocks = pages.flat();
+  const rest = await Promise.all(pagePromises);
+  const allBlocks = [first, ...rest].flatMap((p) => p.blocks);
 
   // 페이지 간 중복(원문 링크 기준)을 제거합니다.
   const seen = new Set();
