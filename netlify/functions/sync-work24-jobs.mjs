@@ -144,6 +144,8 @@ function mapWantedBlock(block) {
     region: mapRegion(rawRegion),
     regionDetail: extractRegionDetail(rawRegion),
     job: mapJobCategory(title),
+    jobsCd: extractTag(block, "jobsCd"), // work24 공식 직종분류코드. "사회공헌" 등 큰 카테고리를
+    // 세부 직종으로 더 정확히 나눌 때 제목 키워드 추측 대신 이 코드를 기준으로 쓸 예정입니다.
     type: extractTag(block, "holidayTpNm"),
     pay: formatPay(extractTag(block, "sal") || extractTag(block, "salTpNm")),
     isNew: isRecent(extractTag(block, "regDt")),
