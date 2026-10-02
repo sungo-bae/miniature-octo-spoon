@@ -12,26 +12,11 @@
 //   GITHUB_BRANCH    - "main" (기본값, 생략 가능)
 // 값이 없으면 이 함수는 아무것도 하지 않고 조용히 종료합니다(에러 아님).
 
+import { extractTag } from "./lib/xml-utils.mjs";
+
 const GITHUB_API = "https://api.github.com";
 const TARGET_PATH = "content/jobs-external.json";
 const WORK24_LIST_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L01.do";
-
-/* ---------------- 아주 단순한 XML 파서 ----------------
-   워크넷 응답 구조가 단순(중첩 없는 필드로만 구성)해서 정규식으로 충분합니다. */
-function extractTag(block, tag) {
-  const m = block.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`));
-  return m ? unescapeXml(m[1].trim()) : "";
-}
-
-function unescapeXml(str) {
-  return str
-    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&");
-}
 
 function splitWantedBlocks(xml) {
   const matches = xml.match(/<wanted>[\s\S]*?<\/wanted>/g);
@@ -122,6 +107,7 @@ function mapWantedBlock(block) {
   if (career) requirementsParts.push("경력: " + career);
 
   return {
+    id: extractTag(block, "wantedAuthNo"),
     title,
     company: extractTag(block, "company"),
     region: mapRegion(extractTag(block, "region")),
