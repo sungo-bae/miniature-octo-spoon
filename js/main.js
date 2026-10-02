@@ -362,14 +362,24 @@
       partnersEl.textContent = partnerCount.toLocaleString("ko-KR") + "곳";
     }
 
-    document.querySelectorAll(".category-card[data-job]").forEach(function (card) {
+    // 건수가 많은 순으로 정렬해서 보여줍니다 (일자리 현황 리포트와 순서를 맞춤)
+    var jobCardEntries = Array.prototype.slice.call(document.querySelectorAll(".category-card[data-job]")).map(function (card) {
       var job = card.getAttribute("data-job");
       var countEl = card.querySelector(".cat-count");
-      if (!job || !countEl) return;
-      var count = JOBS.filter(function (j) { return j.job === job; }).length;
-      var label = job === "사회공헌" ? "활동" : "일자리";
-      countEl.textContent = label + " " + count + "건";
+      var count = job ? JOBS.filter(function (j) { return j.job === job; }).length : 0;
+      if (countEl) {
+        var label = job === "사회공헌" ? "활동" : "일자리";
+        countEl.textContent = label + " " + count + "건";
+      }
+      return { card: card, count: count };
     });
+    if (jobCardEntries.length) {
+      var jobCardParent = jobCardEntries[0].card.parentNode;
+      jobCardEntries
+        .slice()
+        .sort(function (a, b) { return b.count - a.count; })
+        .forEach(function (entry) { jobCardParent.appendChild(entry.card); });
+    }
 
     document.querySelectorAll(".category-card[data-region]").forEach(function (card) {
       var region = card.getAttribute("data-region");
