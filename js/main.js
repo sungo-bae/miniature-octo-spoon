@@ -86,6 +86,43 @@
   var jobListStatus = document.getElementById("jobListStatus");
   var jobListMoreWrap = document.getElementById("jobListMoreWrap");
   var jobListMoreBtn = document.getElementById("jobListMoreBtn");
+  var searchRegionEl = document.getElementById("searchRegion");
+  var searchRegionDetailEl = document.getElementById("searchRegionDetail");
+
+  // "세부지역" 드롭다운은 고정 목록이 아니라, 선택된 권역 안에 실제로 공고가 있는
+  // 시/군/구만 모아서 그때그때 채웁니다. 권역을 고르지 않았으면("전체 지역")
+  // 세부지역은 비활성화합니다(전국 시/군/구를 한 목록에 다 늘어놓으면 너무 깁니다).
+  function updateRegionDetailOptions(region, keepValue) {
+    if (!searchRegionDetailEl) return;
+    var prevValue = keepValue ? searchRegionDetailEl.value : "";
+
+    if (!region) {
+      searchRegionDetailEl.innerHTML = '<option value="">전체</option>';
+      searchRegionDetailEl.disabled = true;
+      return;
+    }
+
+    var counts = {};
+    JOBS.forEach(function (job) {
+      if (job.region !== region || !job.regionDetail) return;
+      counts[job.regionDetail] = (counts[job.regionDetail] || 0) + 1;
+    });
+    var names = Object.keys(counts).sort(function (a, b) { return a.localeCompare(b, "ko"); });
+
+    var html = '<option value="">전체</option>';
+    names.forEach(function (name) {
+      html += '<option value="' + name + '">' + name + ' (' + counts[name] + '건)</option>';
+    });
+    searchRegionDetailEl.innerHTML = html;
+    searchRegionDetailEl.disabled = false;
+    if (prevValue && counts[prevValue]) searchRegionDetailEl.value = prevValue;
+  }
+
+  if (searchRegionEl) {
+    searchRegionEl.addEventListener("change", function () {
+      updateRegionDetailOptions(searchRegionEl.value, false);
+    });
+  }
 
   // 채용공고별 고유 URL(/jobs/<slug>.html)을 만드는 해시 함수.
   // scripts/generate-job-pages.mjs가 똑같은 함수로 정적 페이지를 생성하므로,
@@ -109,6 +146,12 @@
     return '<span class="job-source job-source-local">지역업체 등록</span>';
   }
 
+  // work24 원본 지역 텍스트는 "서울 강남구"처럼 "권역 세부지역"으로 와서, 가능하면
+  // 세부지역까지 같이 보여줍니다(세부지역이 없는 공고는 권역만 표시).
+  function jobRegionLabel(job) {
+    return job.regionDetail ? job.region + " " + job.regionDetail : job.region;
+  }
+
   function jobCardHTML(job) {
     return (
       '<a class="job-card" href="/jobs/' + jobSlug(job) + '.html" aria-haspopup="dialog">' +
@@ -120,7 +163,7 @@
           '</div>' +
           (job.isNew ? '<span class="job-tag">NEW</span>' : '') +
         '</div>' +
-        '<div class="job-meta"><span>' + job.region + '</span><span>' + job.type + '</span></div>' +
+        '<div class="job-meta"><span>' + jobRegionLabel(job) + '</span><span>' + job.type + '</span></div>' +
         '<p class="job-pay">' + job.pay + '</p>' +
         '<p class="job-card-more">자세히 보기 →</p>' +
       '</a>'
@@ -161,14 +204,15 @@
     if (jobListMoreWrap) jobListMoreWrap.hidden = visible.length >= currentFullList.length;
   }
 
-  function renderJobs(filterRegion, filterJob) {
+  function renderJobs(filterRegion, filterJob, filterRegionDetail) {
     if (!jobGrid) return;
     // filterJob은 직종 문자열 하나, 직종 배열(활동 강도 필터), 또는 빈 값일 수 있습니다.
     var jobList = Array.isArray(filterJob) ? filterJob : (filterJob ? [filterJob] : null);
     var filtered = JOBS.filter(function (job) {
       var regionOk = !filterRegion || job.region === filterRegion;
+      var regionDetailOk = !filterRegionDetail || job.regionDetail === filterRegionDetail;
       var jobOk = !jobList || jobList.indexOf(job.job) !== -1;
-      return regionOk && jobOk;
+      return regionOk && regionDetailOk && jobOk;
     });
     filtered.sort(function (a, b) { return jobSortTime(b) - jobSortTime(a); });
 
@@ -206,7 +250,7 @@
     document.getElementById("jobModalTag").textContent = job.isNew ? "NEW" : "";
     document.getElementById("jobModalTitle").textContent = job.title || "";
     document.getElementById("jobModalCompany").textContent = job.company || "";
-    document.getElementById("jobModalMeta").textContent = [job.region, job.type].filter(Boolean).join(" · ");
+    document.getElementById("jobModalMeta").textContent = [jobRegionLabel(job), job.type].filter(Boolean).join(" · ");
     document.getElementById("jobModalPay").textContent = job.pay || "";
     var deadlineEl = document.getElementById("jobModalDeadline");
     if (deadlineEl) deadlineEl.textContent = job.deadline ? "마감일: " + job.deadline : "상시채용";
@@ -364,7 +408,8 @@
     .then(function () {
       var regionEl = document.getElementById("searchRegion");
       var jobEl = document.getElementById("searchJob");
-      renderJobs(regionEl ? regionEl.value : "", jobEl ? jobEl.value : "");
+      updateRegionDetailOptions(regionEl ? regionEl.value : "", true);
+      renderJobs(regionEl ? regionEl.value : "", jobEl ? jobEl.value : "", searchRegionDetailEl ? searchRegionDetailEl.value : "");
       updateStats();
     });
 
@@ -427,7 +472,8 @@
       e.preventDefault();
       var region = document.getElementById("searchRegion").value;
       var job = document.getElementById("searchJob").value;
-      renderJobs(region, job);
+      var regionDetail = searchRegionDetailEl ? searchRegionDetailEl.value : "";
+      renderJobs(region, job, regionDetail);
       document.getElementById("jobs").scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }
@@ -440,7 +486,7 @@
       e.preventDefault();
       var jobSelect = document.getElementById("searchJob");
       if (jobSelect) jobSelect.value = job;
-      renderJobs(document.getElementById("searchRegion").value, job);
+      renderJobs(document.getElementById("searchRegion").value, job, searchRegionDetailEl ? searchRegionDetailEl.value : "");
       document.getElementById("jobs").scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
@@ -453,8 +499,9 @@
       e.preventDefault();
       var regionSelect = document.getElementById("searchRegion");
       if (regionSelect) regionSelect.value = region;
+      updateRegionDetailOptions(region, false); // 새 권역을 골랐으니 세부지역은 "전체"로 초기화
       var jobSelect = document.getElementById("searchJob");
-      renderJobs(region, jobSelect ? jobSelect.value : "");
+      renderJobs(region, jobSelect ? jobSelect.value : "", "");
       document.getElementById("jobs").scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
@@ -469,7 +516,7 @@
       e.preventDefault();
       var jobSelect = document.getElementById("searchJob");
       if (jobSelect) jobSelect.value = ""; // 강도 필터는 여러 직종을 묶으므로 드롭다운은 "전체 직종"으로 되돌림
-      renderJobs(document.getElementById("searchRegion").value, entry.jobs);
+      renderJobs(document.getElementById("searchRegion").value, entry.jobs, searchRegionDetailEl ? searchRegionDetailEl.value : "");
       document.getElementById("jobs").scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });

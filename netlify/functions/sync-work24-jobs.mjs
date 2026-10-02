@@ -28,7 +28,7 @@ function extractTotal(xml) {
   return isNaN(n) ? 0 : n;
 }
 
-// 워크넷 지역 텍스트 -> 사이트에서 쓰는 7개 권역으로 단순 매핑 (필요시 보완)
+// 워크넷 지역 텍스트 -> 사이트에서 쓰는 8개 권역으로 단순 매핑 (필요시 보완)
 function mapRegion(rawRegion) {
   if (!rawRegion) return "";
   const r = rawRegion;
@@ -41,6 +41,15 @@ function mapRegion(rawRegion) {
   if (r.includes("강원")) return "강원";
   if (r.includes("제주")) return "제주";
   return "";
+}
+
+// 워크넷 지역 텍스트는 "서울 강남구", "경남 양산시"처럼 "권역 세부지역" 형태입니다.
+// 첫 단어(권역) 다음에 오는 시/군/구 이름만 뽑아서 더 구체적으로 보여줄 때 씁니다.
+// 세종처럼 세부지역이 따로 없는 경우는 빈 문자열을 반환합니다.
+function extractRegionDetail(rawRegion) {
+  if (!rawRegion) return "";
+  const parts = rawRegion.trim().split(/\s+/);
+  return parts.length > 1 ? parts.slice(1).join(" ") : "";
 }
 
 // 1차 필터는 work24 API 자체의 "(준)고령자(50세 이상) 우대" 조건(pfPreferential=8)이
@@ -124,12 +133,15 @@ function mapWantedBlock(block) {
   if (minEdubg) requirementsParts.push("학력: " + minEdubg + (maxEdubg && maxEdubg !== minEdubg ? " ~ " + maxEdubg : ""));
   if (career) requirementsParts.push("경력: " + career);
 
+  const rawRegion = extractTag(block, "region");
+
   return {
     id: extractTag(block, "wantedAuthNo"),
     infoSvc: extractTag(block, "infoSvc"),
     title,
     company: extractTag(block, "company"),
-    region: mapRegion(extractTag(block, "region")),
+    region: mapRegion(rawRegion),
+    regionDetail: extractRegionDetail(rawRegion),
     job: mapJobCategory(title),
     type: extractTag(block, "holidayTpNm"),
     pay: formatPay(extractTag(block, "sal") || extractTag(block, "salTpNm")),

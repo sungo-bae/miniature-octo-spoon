@@ -55,6 +55,11 @@ function jobSourceBadge(job) {
   return '<span class="job-source job-source-local">지역업체 등록</span>';
 }
 
+// js/main.js의 jobRegionLabel()과 같은 로직입니다. 한쪽만 고치면 표시가 어긋나니 같이 수정하세요.
+function jobRegionLabel(job) {
+  return job.regionDetail ? `${job.region} ${job.regionDetail}` : job.region;
+}
+
 function buildDescription(job) {
   if (job.description && job.description.trim()) return job.description.trim();
   const parts = [];
@@ -218,7 +223,7 @@ function jobDetailPage(job, slug, fallbackDate) {
       <p style="margin:0 0 18px;">${jobSourceBadge(job)}</p>
 
       <div class="legal-box" style="margin-bottom:24px;">
-        <p style="margin:0 0 8px;"><strong>${escapeHtml(job.region || "")}</strong> ${job.type ? "· " + escapeHtml(job.type) : ""}</p>
+        <p style="margin:0 0 8px;"><strong>${escapeHtml(jobRegionLabel(job) || "")}</strong> ${job.type ? "· " + escapeHtml(job.type) : ""}</p>
         <p style="margin:0; font-weight:800; color:var(--color-primary-dark); font-size:1.2rem;">${escapeHtml(job.pay || "")}</p>
         ${job.deadline ? `<p style="margin:8px 0 0; color:var(--color-text-muted);">마감일: ${escapeHtml(job.deadline)}</p>` : `<p style="margin:8px 0 0; color:var(--color-text-muted);">상시채용</p>`}
       </div>
@@ -252,7 +257,7 @@ function jobIndexPage(entries) {
   const items = entries
     .map(
       ({ job, slug }) =>
-        `        <li style="margin-bottom:10px;"><a href="/jobs/${slug}.html">${escapeHtml(job.title)} — ${escapeHtml(job.company)} (${escapeHtml(job.region || "")})</a></li>`
+        `        <li style="margin-bottom:10px;"><a href="/jobs/${slug}.html">${escapeHtml(job.title)} — ${escapeHtml(job.company)} (${escapeHtml(jobRegionLabel(job) || "")})</a></li>`
     )
     .join("\n");
 
