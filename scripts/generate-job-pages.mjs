@@ -309,6 +309,33 @@ const CATEGORY_GUIDE = {
   사회공헌: "요양보호사·노인맞춤돌봄 관련 자격증이 있으면 선택의 폭이 넓어지지만, 자격증 없이 지원 가능한 활동도 많습니다."
 };
 
+// "사회공헌활동" 세부 분류마다, 왜 이 일자리가 생기는지를 실제로 존재하는
+// 제도·정책 이름을 근거로 설명합니다. 중요: 특정 수치나 "환율이 오르면 N% 증가"
+// 같은 상관관계 주장은 절대 넣지 않습니다 — 저희가 가진 데이터(며칠치)로는
+// 그런 분석을 할 근거가 없고, 지어낸 것이 되기 때문입니다. 여기 적힌 내용은
+// 전부 실제로 존재하는 법·제도의 구조를 설명한 것이지, 실버잡이 직접 계산한
+// 통계적 상관관계가 아닙니다.
+const SOCIAL_SUBCATEGORY_CONTEXT = {
+  "요양보호사·간병": "노인장기요양보험제도(보건복지부)에 따라 장기요양 등급을 받는 어르신이 늘어날수록 수요가 커지는 구조입니다. 시니어 일자리 중 고령인구 증가와 가장 직접적으로 연동되는 직종입니다.",
+  "사회복지사": "사회복지사업법에 따라 노인복지관·재가복지센터 등 복지시설에 의무 배치되는 인력입니다. 지자체·정부의 복지 예산 규모에 영향을 받습니다.",
+  "노인맞춤돌봄·생활지원": "보건복지부가 운영하는 '노인맞춤돌봄서비스' 사업의 인력입니다. 매년 정부 예산 편성에 따라 모집 규모가 정해지는 공공사업형 일자리입니다.",
+  "간호조무사·병동보조": "요양병원 수 증가와 함께 늘어나는 직종입니다.",
+  "간호사": "의료기관(요양병원 포함) 확충과 간호인력 수급 정책에 영향을 받습니다.",
+  "물리·작업치료사": "요양병원·요양원의 재활치료 수요와 연동되는 직종입니다.",
+  "요양시설 위생관리": "노인요양시설 수 증가와 함께 늘어나는 직종입니다."
+};
+
+function socialSubcategoryBlock(name, count, max) {
+  const context = SOCIAL_SUBCATEGORY_CONTEXT[name];
+  return (
+    barRow(name, count, max, context ? 6 : 14) +
+    (context
+      ? `
+      <p style="margin:0 0 20px; color:var(--color-text-muted); font-size:.95rem;">📌 <strong>왜 이 일자리가 생길까요?</strong> ${escapeHtml(context)}</p>`
+      : "")
+  );
+}
+
 // 지금 집계 결과에서 이 직종이 몇 번째로 많은지에 따라 문구를 다르게 붙입니다.
 // (고정된 멘트가 아니라, 매 빌드마다 실제 순위를 다시 계산합니다.)
 function jobRankNote(index, total) {
@@ -399,7 +426,7 @@ function buildReportPage(stats, history) {
   const socialSubEntries = sortedEntries(stats.bySocialSubcategory);
   const socialSubTotal = socialSubEntries.reduce((sum, [, c]) => sum + c, 0);
   const socialSubMax = socialSubEntries.length ? socialSubEntries[0][1] : 0;
-  const socialSubBars = socialSubEntries.map(([name, count]) => barRow(name, count, socialSubMax)).join("");
+  const socialSubBars = socialSubEntries.map(([name, count]) => socialSubcategoryBlock(name, count, socialSubMax)).join("");
   const topSocial = socialSubEntries[0];
   const topSocialPct = topSocial && socialSubTotal ? Math.round((topSocial[1] / socialSubTotal) * 100) : 0;
   const socialInsight = topSocial
@@ -448,7 +475,12 @@ function buildReportPage(stats, history) {
 
         <h2>"사회공헌활동", 자세히 들여다보면</h2>
         <p class="section-desc" style="margin-bottom:12px;">${socialInsight || "데이터가 아직 충분하지 않습니다."}</p>
-        ${socialSubBars || "<p>데이터가 아직 없습니다.</p>"}
+        ${
+          socialSubBars
+            ? `<p class="section-desc" style="margin-bottom:12px;">아래 "왜 이 일자리가 생길까요?" 설명은 실제로 존재하는 법·제도(노인장기요양보험제도, 사회복지사업법 등)를 근거로 적은 것입니다. 실버잡이 며칠치 데이터로 통계적 상관관계나 순위를 계산한 것이 아니며, 그런 분석은 충분한 기간의 데이터가 쌓인 뒤에만 제공할 계획입니다.</p>
+        ${socialSubBars}`
+            : "<p>데이터가 아직 없습니다.</p>"
+        }
 
         <h2>최근 추이</h2>
         ${trendHtml}
