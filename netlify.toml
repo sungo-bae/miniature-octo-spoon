@@ -1,3 +1,12 @@
 [build]
   command = "node scripts/generate-job-pages.mjs"
   publish = "."
+
+# 채용 상세페이지(/jobs/<slug>.html)는 더 이상 빌드 시점에 정적 파일로 미리 만들지
+# 않고, 요청이 올 때 job-page 함수가 그 자리에서 렌더링합니다(빌드 크레딧 절약).
+# force를 쓰지 않았으므로, 실제 파일이 있는 /jobs/index.html은 이 규칙보다 먼저
+# 그대로 서빙됩니다 — Netlify는 매칭되는 정적 파일이 있으면 그걸 우선합니다.
+[[redirects]]
+  from = "/jobs/*"
+  to = "/.netlify/functions/job-page?slug=:splat"
+  status = 200
