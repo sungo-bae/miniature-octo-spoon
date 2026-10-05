@@ -285,23 +285,59 @@ async function getJsonFile({ token, repo, branch, path }) {
   }
 }
 
-// GitHub Contents API로 파일 하나를 덮어씁니다. sha를 이미 알고 있으면(바로 전에 읽었다면)
-// 다시 조회하지 않고 그대로 씁니다. jobs-external.json과 jobs-stats-history.json 양쪽에 씁니다.
-async function putJsonFile({ token, repo, branch, path, data, message, sha }) {
+// 여러 파일을 "한 번의 커밋"으로 함께 올립니다(Git Data API 사용).
+// Contents API로 파일마다 따로 PUT하면 파일 수만큼 커밋·배포가 발생해서 Netlify 빌드
+// 크레딧을 그만큼 더 씁니다(2026-10 초 배포 크레딧 초과 사태의 주원인). jobs-external.json과
+// jobs-stats-history.json을 하나의 커밋으로 묶어서 하루 자동 배포 횟수를 2회→1회로 줄입니다.
+async function commitJsonFiles({ token, repo, branch, files, message }) {
   const [owner, name] = repo.split("/");
-  const content = JSON.stringify(data, null, 2);
+  const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" };
 
-  const putRes = await fetch(`${GITHUB_API}/repos/${owner}/${name}/contents/${path}`, {
-    method: "PUT",
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" },
-    body: JSON.stringify({
-      message,
-      content: Buffer.from(content, "utf-8").toString("base64"),
-      ...(sha ? { sha } : {}),
-      branch
-    })
+  const refRes = await fetch(`${GITHUB_API}/repos/${owner}/${name}/git/ref/heads/${branch}`, { headers });
+  if (!refRes.ok) throw new Error("failed to read branch ref: " + refRes.status);
+  const baseCommitSha = (await refRes.json()).object.sha;
+
+  const baseCommitRes = await fetch(`${GITHUB_API}/repos/${owner}/${name}/git/commits/${baseCommitSha}`, { headers });
+  if (!baseCommitRes.ok) throw new Error("failed to read base commit: " + baseCommitRes.status);
+  const baseTreeSha = (await baseCommitRes.json()).tree.sha;
+
+  const treeEntries = [];
+  for (const file of files) {
+    const blobRes = await fetch(`${GITHUB_API}/repos/${owner}/${name}/git/blobs`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        content: Buffer.from(JSON.stringify(file.data, null, 2), "utf-8").toString("base64"),
+        encoding: "base64"
+      })
+    });
+    if (!blobRes.ok) throw new Error(`failed to create blob for ${file.path}: ` + blobRes.status);
+    const blobSha = (await blobRes.json()).sha;
+    treeEntries.push({ path: file.path, mode: "100644", type: "blob", sha: blobSha });
+  }
+
+  const treeRes = await fetch(`${GITHUB_API}/repos/${owner}/${name}/git/trees`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ base_tree: baseTreeSha, tree: treeEntries })
   });
-  if (!putRes.ok) throw new Error(`failed to commit ${path}: ` + putRes.status);
+  if (!treeRes.ok) throw new Error("failed to create tree: " + treeRes.status);
+  const newTreeSha = (await treeRes.json()).sha;
+
+  const newCommitRes = await fetch(`${GITHUB_API}/repos/${owner}/${name}/git/commits`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ message, tree: newTreeSha, parents: [baseCommitSha] })
+  });
+  if (!newCommitRes.ok) throw new Error("failed to create commit: " + newCommitRes.status);
+  const newCommitSha = (await newCommitRes.json()).sha;
+
+  const updateRefRes = await fetch(`${GITHUB_API}/repos/${owner}/${name}/git/refs/heads/${branch}`, {
+    method: "PATCH",
+    headers,
+    body: JSON.stringify({ sha: newCommitSha })
+  });
+  if (!updateRefRes.ok) throw new Error("failed to update branch ref: " + updateRefRes.status);
 }
 
 // 매일 KST 기준 날짜로 "그날의 지역별/직종별 공고 건수"만 아주 가볍게 누적 기록합니다.
@@ -324,7 +360,9 @@ function buildDailyStats(jobs) {
   return { date: kstDateString(), total: jobs.length, byRegion, byJob, bySocialSubcategory };
 }
 
-async function updateStatsHistory({ token, repo, branch, jobs }) {
+// 기존 통계 이력을 읽어와 오늘자 기록을 병합한 데이터를 반환합니다(커밋은 하지 않음 —
+// 호출하는 쪽에서 jobs-external.json과 함께 한 번의 커밋으로 묶어서 올립니다).
+async function buildMergedStatsHistory({ token, repo, branch, jobs }) {
   const existing = await getJsonFile({ token, repo, branch, path: STATS_HISTORY_PATH });
   const history = existing && Array.isArray(existing.data?.days) ? existing.data.days : [];
 
@@ -334,15 +372,7 @@ async function updateStatsHistory({ token, repo, branch, jobs }) {
   if (idx >= 0) history[idx] = todayStats;
   else history.push(todayStats);
 
-  await putJsonFile({
-    token,
-    repo,
-    branch,
-    path: STATS_HISTORY_PATH,
-    data: { days: history, note: "일자별 공고 건수 요약 — 추세 분석용. 전체 공고 원문은 저장하지 않습니다." },
-    message: "chore: update daily job stats history (automated)",
-    sha: existing ? existing.sha : undefined
-  });
+  return { days: history, note: "일자별 공고 건수 요약 — 추세 분석용. 전체 공고 원문은 저장하지 않습니다." };
 }
 
 export default async () => {
@@ -359,25 +389,33 @@ export default async () => {
   try {
     const jobs = await fetchWork24Jobs(apiKey);
 
-    const existingTarget = await getJsonFile({ token: githubToken, repo, branch, path: TARGET_PATH });
-    await putJsonFile({
+    const files = [
+      {
+        path: TARGET_PATH,
+        data: { jobs, syncedAt: new Date().toISOString(), note: "워크넷 Open API에서 자동으로 가져온 데이터입니다." }
+      }
+    ];
+
+    // 통계 이력 병합은 추세 분석용 부가 기능이라, 혹시 실패해도 본 동기화는 계속 진행합니다
+    // (이번 커밋에 통계 파일만 빠지고, jobs-external.json은 정상적으로 갱신됩니다).
+    try {
+      const statsData = await buildMergedStatsHistory({ token: githubToken, repo, branch, jobs });
+      files.push({ path: STATS_HISTORY_PATH, data: statsData });
+    } catch (statsErr) {
+      console.error("sync-work24-jobs: 통계 이력 병합 실패(본 동기화는 정상 진행):", statsErr);
+    }
+
+    // jobs-external.json과 jobs-stats-history.json을 한 번의 커밋으로 올립니다.
+    // (예전엔 파일마다 따로 커밋해서 하루 자동 배포가 2회 발생했는데, 이를 1회로 줄입니다.)
+    await commitJsonFiles({
       token: githubToken,
       repo,
       branch,
-      path: TARGET_PATH,
-      data: { jobs, syncedAt: new Date().toISOString(), note: "워크넷 Open API에서 자동으로 가져온 데이터입니다." },
-      message: "chore: sync jobs from work24 (automated)",
-      sha: existingTarget ? existingTarget.sha : undefined
+      files,
+      message: "chore: sync jobs from work24 + update daily stats (automated)"
     });
 
-    // 통계 이력 저장은 추세 분석용 부가 기능이라, 혹시 실패해도 본 동기화 결과에는 영향 주지 않습니다.
-    try {
-      await updateStatsHistory({ token: githubToken, repo, branch, jobs });
-    } catch (statsErr) {
-      console.error("sync-work24-jobs: 통계 이력 저장 실패(본 동기화는 정상 완료):", statsErr);
-    }
-
-    console.log(`sync-work24-jobs: ${jobs.length}건 동기화 완료`);
+    console.log(`sync-work24-jobs: ${jobs.length}건 동기화 완료 (${files.length}개 파일, 1커밋)`);
     return new Response(`synced ${jobs.length} jobs`, { status: 200 });
   } catch (err) {
     console.error("sync-work24-jobs failed:", err);
