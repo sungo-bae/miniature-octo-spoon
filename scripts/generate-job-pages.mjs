@@ -336,6 +336,32 @@ function socialSubcategoryBlock(name, count, max) {
   );
 }
 
+// 권역별로 "왜 이 지역에 시니어 채용정보가 많은가/적은가"를 실제 공신력 있는
+// 고령인구 통계(통계청·행정안전부·지자체 발표)로 설명합니다. 사회공헌활동 설명과
+// 마찬가지로, 실버잡이 직접 계산한 상관관계가 아니라 이미 발표된 공식 통계를
+// 인용한 것입니다. 수치는 대략적인 값이며, 출처를 함께 표기합니다.
+const REGION_CONTEXT = {
+  "서울": "서울의 65세 이상 인구는 약 196만 명으로 전국 17개 시도 중 가장 많습니다(전국 고령인구의 약 17%, 통계청 고령자 통계). 고령인구가 가장 많이 모여 사는 도시인 만큼 시니어 일자리 수요·공급도 가장 활발합니다.",
+  "경기·인천": "경기도의 65세 이상 인구는 약 255만 명으로 서울보다도 많고, 2050년에는 518만 명까지 늘어날 것으로 전망됩니다(경기도 발표). 인천을 포함한 수도권 전체 인구 규모가 워낙 크다 보니, 절대적인 채용공고 수도 가장 많습니다.",
+  "부산·경남": "부산은 특별·광역시 중 고령인구 비율이 가장 높고(약 22.8%), 고령화 속도도 전국에서 가장 빠른 도시로 조사됐습니다(2026년 고령자 통계). 그만큼 시니어 돌봄·복지 일자리 수요도 빠르게 늘고 있습니다.",
+  "대구·경북": "경북은 고령인구 비율이 약 27.6%로 전국에서 손꼽히게 높고, 특히 농촌 지역은 전업농가의 약 65%가 65세 이상일 정도로 고령화가 심합니다(통계청·농림축산식품부 통계). 지역 특성상 농촌형 돌봄·공공근로 일자리 비중이 높습니다.",
+  "광주·전라": "전남은 65세 이상 인구 비율이 약 28.6%로 전국 17개 시도 중 가장 높습니다(2026년 고령자 통계). 고령화가 가장 앞서 진행된 지역인 만큼, 시니어 대상 공공일자리·복지 사업도 가장 먼저, 가장 많이 운영되고 있습니다.",
+  "대전·충청": "충남·충북은 고령인구 비율이 각각 약 23.1%, 23.2%로 전국 평균(21.6%)을 웃돕니다(통계청). 다만 천안·아산 같은 도시(14~15%)와 서천·부여 같은 농촌(42~43%)의 차이가 커서, 지역 안에서도 일자리 성격이 크게 갈립니다.",
+  "강원": "강원은 인구의 약 27%가 65세 이상이며, 30년 뒤에는 인구 절반이 노인일 것으로 전망됩니다(강원도 발표). 고령화가 가장 빠르게 진행되는 지역 중 하나로, 시니어 일자리의 중요성이 특히 큽니다.",
+  "제주": "제주는 65세 이상 인구 비율이 약 20.0%로 아직 전국 평균보다 낮지만, 2052년에는 40.9%로 전국 평균을 넘어설 것으로 전망됩니다(통계청). 인구 규모 자체가 작아 다른 지역보다 공고 수가 상대적으로 적습니다."
+};
+
+function regionBlock(name, count, max) {
+  const context = REGION_CONTEXT[name];
+  return (
+    barRow(name, count, max, context ? 6 : 14) +
+    (context
+      ? `
+      <p style="margin:0 0 20px; color:var(--color-text-muted); font-size:.95rem;">📌 <strong>왜 이 지역에 시니어 채용정보가 많을까요?</strong> ${escapeHtml(context)}</p>`
+      : "")
+  );
+}
+
 // 지금 집계 결과에서 이 직종이 몇 번째로 많은지에 따라 문구를 다르게 붙입니다.
 // (고정된 멘트가 아니라, 매 빌드마다 실제 순위를 다시 계산합니다.)
 function jobRankNote(index, total) {
@@ -413,7 +439,7 @@ function buildReportPage(stats, history) {
   const jobMax = jobEntries.length ? jobEntries[0][1] : 0;
   const detailEntries = sortedEntries(stats.byRegionDetail).slice(0, 10);
 
-  const regionBars = regionEntries.map(([name, count]) => barRow(name, count, regionMax)).join("");
+  const regionBars = regionEntries.map(([name, count]) => regionBlock(name, count, regionMax)).join("");
   const jobBars = jobEntries
     .map(([name, count], i) => jobCategoryBlock(name, count, jobMax, i, jobEntries.length))
     .join("");
@@ -463,7 +489,12 @@ function buildReportPage(stats, history) {
         <p>현재 실버잡에 등록된 시니어 채용정보는 총 <strong>${stats.total.toLocaleString("ko-KR")}건</strong>입니다.</p>
 
         <h2>권역별 분포</h2>
-        ${regionBars || "<p>데이터가 아직 없습니다.</p>"}
+        ${
+          regionBars
+            ? `<p class="section-desc" style="margin-bottom:12px;">아래 "왜 이 지역에 많을까요?" 설명은 통계청·행정안전부 등이 발표한 실제 고령인구 통계를 인용한 것입니다. 실버잡이 직접 계산한 상관관계가 아닙니다.</p>
+        ${regionBars}`
+            : "<p>데이터가 아직 없습니다.</p>"
+        }
 
         <h2>전국 시/군/구 TOP 10</h2>
         <p class="section-desc" style="margin-bottom:12px;">시니어 채용정보가 가장 많이 등록된 지역 순위입니다.</p>
