@@ -26,18 +26,26 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5분
 let cached = null; // { jobBySlug: Map, fallbackDate: string, at: number }
 
 async function fetchJobsFile(path) {
+  const fullUrl = `${SITE_URL}${path}`;
   try {
-    const res = await fetch(`${SITE_URL}${path}`);
+    const res = await fetch(fullUrl);
+    console.log(`job-page: fetch ${fullUrl} -> status ${res.status}`);
     if (!res.ok) return { jobs: [] };
     const data = await res.json();
-    return { jobs: Array.isArray(data.jobs) ? data.jobs : [], syncedAt: data.syncedAt };
-  } catch {
+    const jobs = Array.isArray(data.jobs) ? data.jobs : [];
+    console.log(`job-page: ${path} parsed, jobs=${jobs.length}`);
+    return { jobs, syncedAt: data.syncedAt };
+  } catch (err) {
+    console.error(`job-page: fetch ${fullUrl} failed:`, err && err.message ? err.message : err);
     return { jobs: [] };
   }
 }
 
 async function loadJobBySlug() {
-  if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached;
+  if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
+    console.log(`job-page: using cached job list (${cached.jobBySlug.size}건, ${Math.round((Date.now() - cached.at) / 1000)}초 전 로드)`);
+    return cached;
+  }
 
   const [adminJobs, externalJobs] = await Promise.all([
     fetchJobsFile("/content/jobs.json"),
@@ -45,6 +53,7 @@ async function loadJobBySlug() {
   ]);
   const fallbackDate = (externalJobs.syncedAt || adminJobs.syncedAt || "").slice(0, 10);
   const entries = collectValidJobs(adminJobs.jobs.concat(externalJobs.jobs));
+  console.log(`job-page: 목록 재구성 완료, admin=${adminJobs.jobs.length} external=${externalJobs.jobs.length} valid=${entries.length}`);
 
   cached = { jobBySlug: new Map(entries.map((e) => [e.slug, e.job])), fallbackDate, at: Date.now() };
   return cached;
@@ -69,9 +78,11 @@ export default async (req) => {
   const url = new URL(req.url);
   const rawSlug = (url.searchParams.get("slug") || "").trim();
   const slug = rawSlug.replace(/\.html$/i, "");
+  console.log(`job-page: 요청 url=${req.url} rawSlug=${JSON.stringify(rawSlug)} slug=${JSON.stringify(slug)}`);
 
   const { jobBySlug, fallbackDate } = await loadJobBySlug();
   const job = jobBySlug.get(slug);
+  console.log(`job-page: slug=${slug} found=${!!job}`);
 
   if (!job) {
     return new Response(notFoundPage(), {
