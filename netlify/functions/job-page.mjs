@@ -76,9 +76,13 @@ function notFoundPage() {
 
 export default async (req) => {
   const url = new URL(req.url);
-  const rawSlug = (url.searchParams.get("slug") || "").trim();
-  const slug = rawSlug.replace(/\.html$/i, "");
-  console.log(`job-page: 요청 url=${req.url} rawSlug=${JSON.stringify(rawSlug)} slug=${JSON.stringify(slug)}`);
+  // netlify.toml의 리다이렉트가 /jobs/* 요청을 이 함수로 그대로 돌려보내는데,
+  // req.url은 원래 요청 경로(예: /jobs/job-xxxxxxxx.html)를 그대로 유지합니다
+  // (":splat"을 쿼리스트링으로 넘기는 방식은 실제 운영 환경에서 값이 비어
+  // 전달되는 문제가 있어, 쿼리스트링 없이 경로에서 직접 슬러그를 뽑습니다).
+  const pathMatch = url.pathname.match(/\/jobs\/([^/]+)\.html$/);
+  const slug = pathMatch ? pathMatch[1] : "";
+  console.log(`job-page: 요청 url=${req.url} pathname=${url.pathname} slug=${JSON.stringify(slug)}`);
 
   const { jobBySlug, fallbackDate } = await loadJobBySlug();
   const job = jobBySlug.get(slug);

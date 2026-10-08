@@ -6,7 +6,11 @@
 # 않고, 요청이 올 때 job-page 함수가 그 자리에서 렌더링합니다(빌드 크레딧 절약).
 # force를 쓰지 않았으므로, 실제 파일이 있는 /jobs/index.html은 이 규칙보다 먼저
 # 그대로 서빙됩니다 — Netlify는 매칭되는 정적 파일이 있으면 그걸 우선합니다.
+# "*.html"로 좁혀서, /jobs/ 밑의 다른 경로(상대경로 fetch 실수 등)가 엉뚱하게
+# 이 함수로 들어오지 않도록 합니다. 쿼리스트링으로 :splat을 넘기는 방식은 실제
+# 운영 환경에서 값이 비어 전달돼서, 함수가 요청 경로에서 직접 슬러그를 뽑도록
+# 바꿨습니다(쿼리스트링 불필요).
 [[redirects]]
-  from = "/jobs/*"
-  to = "/.netlify/functions/job-page?slug=:splat"
+  from = "/jobs/*.html"
+  to = "/.netlify/functions/job-page"
   status = 200

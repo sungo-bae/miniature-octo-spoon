@@ -409,7 +409,7 @@
       .catch(function () { return []; });
   }
 
-  Promise.all([fetchJobsFile("content/jobs.json"), fetchJobsFile("content/jobs-external.json")])
+  Promise.all([fetchJobsFile("/content/jobs.json"), fetchJobsFile("/content/jobs-external.json")])
     .then(function (results) {
       var combined = results[0].concat(results[1]);
       JOBS = combined.length ? combined : FALLBACK_JOBS;
@@ -445,7 +445,7 @@
     noticeList.innerHTML = notices.map(noticeItemHTML).join("");
   }
 
-  fetch("content/notices.json")
+  fetch("/content/notices.json")
     .then(function (res) { return res.ok ? res.json() : Promise.reject(res.status); })
     .then(function (data) { renderNotices(data.notices || FALLBACK_NOTICES); })
     .catch(function () { renderNotices(FALLBACK_NOTICES); });
@@ -470,7 +470,7 @@
     reviewGrid.innerHTML = reviews.map(reviewCardHTML).join("");
   }
 
-  fetch("content/reviews.json")
+  fetch("/content/reviews.json")
     .then(function (res) { return res.ok ? res.json() : Promise.reject(res.status); })
     .then(function (data) { renderReviews(data.reviews && data.reviews.length ? data.reviews : FALLBACK_REVIEWS); })
     .catch(function () { renderReviews(FALLBACK_REVIEWS); });
