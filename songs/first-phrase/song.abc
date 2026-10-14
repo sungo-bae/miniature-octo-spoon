@@ -1,0 +1,22 @@
+X:1
+T:첫 구절에서 (From the First Phrase)
+C:sketch from recording 2026-10-14
+M:4/4
+L:1/8
+Q:1/4=78
+K:C clef=treble-8
+"^Intro" "C"z8 | "Bb"z8 | "F"z8 | "C"z8 | 
+"^Verse 1" "C"C2 G6 | "Dm7"D E G F5 | "Em7"G7 z | "F"C4 z4 | 
+"C"G F G F A F G2 | "Am7"G A E G3 z2 | "Dm7"A B A F G F3 | "G7sus4"F G F G- "G7"G4 | 
+"^Pre-Chorus" "F"c F5 z2 | "Em7"G5 z E F | "Bbmaj7"G F c A _B A3 | "G7sus4"F G F G "G"C4 | 
+"^Chorus" "C"c2 e6 | "G/B"d c d e d4 | "Am7"c4 A2 G2 | "F"G A B c- "G"c4 | 
+"C"c2 e6 | "Em7"d c d e "A7"f2 e2 | "Bb"d2 _B2 A2 F2 | "G"G A B c- "C"c4 | 
+"^Verse 2" "C"C2 G6 | "Dm7"D E G F5 | "Em7"G7 z | "F"C4 z4 | 
+"C"G F G F A F G2 | "Am7"G A E G3 z2 | "Dm7"A B A F G F3 | "G7sus4"F G F G- "G7"G4 | 
+"^Pre-Chorus" "F"c F5 z2 | "Em7"G5 z E F | "Bbmaj7"G F c A _B A3 | "G7sus4"F G F G "G"C4 | 
+"^Chorus" "C"c2 e6 | "G/B"d c d e d4 | "Am7"c4 A2 G2 | "F"G A B c- "G"c4 | 
+"C"c2 e6 | "Em7"d c d e "A7"f2 e2 | "Bb"d2 _B2 A2 F2 | "G"G A B c- "C"c4 | 
+"^Bridge" "Am"F2 F G F4 | "F"A2 G2 F2 E2 | "Dm7"D E F G5 | "Gsus4"G4- "G"G2 z2 | 
+"^Chorus" "C"c2 e6 | "G/B"d c d e d4 | "Am7"c4 A2 G2 | "F"G A B c- "G"c4 | 
+"C"c2 e6 | "Em7"d c d e "A7"f2 e2 | "Bb"d2 _B2 A2 F2 | "G"G A B c- "C"c4 | 
+"^Outro" "C"C2 G6 | "Dm7"D E G F5 | "G"G A B c- "C"c4 | "C"c8 |]
