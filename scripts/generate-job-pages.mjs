@@ -236,10 +236,34 @@ function buildReportPage(stats, history) {
       .slice(-7)
       .map((d) => `<p class="legal-item">${escapeHtml(d.date)} — ${d.total.toLocaleString("ko-KR")}건</p>`)
       .join("\n");
+
+    // 최소 2주(14일)치가 쌓였을 때만, 최근 2주를 1주 단위로 나눠 평균을 비교합니다.
+    // 짧은 기간의 등락을 "추세"라고 과장하지 않기 위해, 날짜별 숫자가 아니라
+    // 1주일 평균끼리만 비교합니다(하루 단위 변동 폭보다 노이즈가 적습니다).
+    let weeklyHtml = "";
+    if (sorted.length >= 14) {
+      const lastTwoWeeks = sorted.slice(-14);
+      const week1 = lastTwoWeeks.slice(0, 7); // 더 이전 주
+      const week2 = lastTwoWeeks.slice(7, 14); // 최근 주
+      const avg = (days) => Math.round(days.reduce((sum, d) => sum + d.total, 0) / days.length);
+      const week1Avg = avg(week1);
+      const week2Avg = avg(week2);
+      const weekDiff = week2Avg - week1Avg;
+      const weekDiffPct = week1Avg ? Math.round((Math.abs(weekDiff) / week1Avg) * 100) : 0;
+      const weekDiffText =
+        weekDiff === 0 ? "변동 없음" : weekDiff > 0 ? `약 ${weekDiffPct}% 증가` : `약 ${weekDiffPct}% 감소`;
+      weeklyHtml = `
+      <h3 style="font-size:1rem; margin-top:20px;">최근 2주 비교 (1주일 평균)</h3>
+      <p>${escapeHtml(week1[0].date)} ~ ${escapeHtml(week1[6].date)} 평균 ${week1Avg.toLocaleString("ko-KR")}건
+      → ${escapeHtml(week2[0].date)} ~ ${escapeHtml(week2[6].date)} 평균 ${week2Avg.toLocaleString("ko-KR")}건 (${weekDiffText})</p>
+      <p class="section-desc" style="margin-top:4px;">하루 단위 숫자는 수집 시점에 따라 들쭉날쭉할 수 있어, 1주일 평균끼리 비교했습니다. 2주치 데이터로는 아직 "증가 추세"라고 단정할 수 없고, 참고용 수치입니다.</p>`;
+    }
+
     trendHtml = `
       <p>${escapeHtml(prev.date)} ${prev.total.toLocaleString("ko-KR")}건 → ${escapeHtml(latest.date)} ${latest.total.toLocaleString("ko-KR")}건 (${diffText})</p>
       <h3 style="font-size:1rem; margin-top:20px;">최근 ${Math.min(sorted.length, 7)}일 추이</h3>
-      ${recentRows}`;
+      ${recentRows}
+      ${weeklyHtml}`;
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -301,6 +325,7 @@ function buildSitemap(entries) {
     { loc: "/", changefreq: "daily", priority: "1.0" },
     { loc: "/about.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/tips.html", changefreq: "monthly", priority: "0.6" },
+    { loc: "/faq.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/partner.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/review.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/terms.html", changefreq: "yearly", priority: "0.3" },
