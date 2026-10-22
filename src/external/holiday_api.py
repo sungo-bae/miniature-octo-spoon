@@ -18,7 +18,7 @@ from typing import Optional
 
 import requests
 
-BASE_URL = "http://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getHoliDeInfo"
+BASE_URL = "https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getHoliDeInfo"
 
 
 @dataclass(frozen=True)

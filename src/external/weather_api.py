@@ -17,7 +17,7 @@ from typing import Optional
 
 import requests
 
-BASE_URL = "http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
+BASE_URL = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
 
 # 단기예보 발표시각: 1일 8회(02,05,08,11,14,17,20,23시), API 반영까지 약 10분 소요
 _BASE_TIMES = ["0200", "0500", "0800", "1100", "1400", "1700", "2000", "2300"]
