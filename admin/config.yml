@@ -10,6 +10,32 @@ media_folder: "assets/uploads"
 public_folder: "/assets/uploads"
 
 collections:
+  - name: "jobs-pending"
+    label: "채용정보 등록 신청 (검토 대기)"
+    files:
+      - name: "jobs-pending"
+        label: "검토 대기 목록"
+        file: "content/jobs-pending.json"
+        fields:
+          - { label: "안내", name: "note", widget: "string", required: false }
+          - label: "검토 대기 목록"
+            name: "submissions"
+            widget: "list"
+            summary: "{{title}} · {{company}} ({{status}})"
+            fields:
+              - { label: "상태", name: "status", widget: "select", options: ["pending", "approved", "rejected"], default: "pending" }
+              - { label: "접수 시각", name: "submittedAt", widget: "string", required: false }
+              - { label: "기관/업체명", name: "company", widget: "string" }
+              - { label: "담당자 성함", name: "managerName", widget: "string", required: false }
+              - { label: "연락처", name: "phone", widget: "string", required: false }
+              - { label: "이메일", name: "email", widget: "string", required: false }
+              - { label: "채용 제목", name: "title", widget: "string" }
+              - { label: "근무 지역", name: "region", widget: "string", required: false }
+              - { label: "직종 (신청서에 적힌 그대로)", name: "jobType", widget: "string", required: false }
+              - { label: "근무조건", name: "condition", widget: "string", required: false }
+              - { label: "급여", name: "pay", widget: "string", required: false }
+              - { label: "상세 내용", name: "detail", widget: "text", required: false }
+
   - name: "jobs"
     label: "채용정보"
     files:

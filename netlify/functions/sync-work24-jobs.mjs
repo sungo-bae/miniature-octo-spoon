@@ -13,8 +13,8 @@
 // 값이 없으면 이 함수는 아무것도 하지 않고 조용히 종료합니다(에러 아님).
 
 import { extractTag } from "./lib/xml-utils.mjs";
+import { getJsonFile, commitJsonFiles } from "./lib/github-commit.mjs";
 
-const GITHUB_API = "https://api.github.com";
 const TARGET_PATH = "content/jobs-external.json";
 const STATS_HISTORY_PATH = "content/jobs-stats-history.json";
 const WORK24_LIST_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L01.do";
@@ -267,77 +267,6 @@ async function fetchWork24Jobs(apiKey) {
     const d = new Date(j.deadline.replace(/\./g, "-"));
     return isNaN(d.getTime()) || d >= today;
   });
-}
-
-// GitHub Contents API에서 파일 1건을 읽어옵니다(sha + 내용). 없으면 null.
-async function getJsonFile({ token, repo, branch, path }) {
-  const [owner, name] = repo.split("/");
-  const getUrl = `${GITHUB_API}/repos/${owner}/${name}/contents/${path}?ref=${branch}`;
-  const res = await fetch(getUrl, {
-    headers: { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" }
-  });
-  if (!res.ok) return null;
-  const file = await res.json();
-  try {
-    return { sha: file.sha, data: JSON.parse(Buffer.from(file.content, "base64").toString("utf-8")) };
-  } catch {
-    return { sha: file.sha, data: null };
-  }
-}
-
-// 여러 파일을 "한 번의 커밋"으로 함께 올립니다(Git Data API 사용).
-// Contents API로 파일마다 따로 PUT하면 파일 수만큼 커밋·배포가 발생해서 Netlify 빌드
-// 크레딧을 그만큼 더 씁니다(2026-10 초 배포 크레딧 초과 사태의 주원인). jobs-external.json과
-// jobs-stats-history.json을 하나의 커밋으로 묶어서 하루 자동 배포 횟수를 2회→1회로 줄입니다.
-async function commitJsonFiles({ token, repo, branch, files, message }) {
-  const [owner, name] = repo.split("/");
-  const headers = { Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" };
-
-  const refRes = await fetch(`${GITHUB_API}/repos/${owner}/${name}/git/ref/heads/${branch}`, { headers });
-  if (!refRes.ok) throw new Error("failed to read branch ref: " + refRes.status);
-  const baseCommitSha = (await refRes.json()).object.sha;
-
-  const baseCommitRes = await fetch(`${GITHUB_API}/repos/${owner}/${name}/git/commits/${baseCommitSha}`, { headers });
-  if (!baseCommitRes.ok) throw new Error("failed to read base commit: " + baseCommitRes.status);
-  const baseTreeSha = (await baseCommitRes.json()).tree.sha;
-
-  const treeEntries = [];
-  for (const file of files) {
-    const blobRes = await fetch(`${GITHUB_API}/repos/${owner}/${name}/git/blobs`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        content: Buffer.from(JSON.stringify(file.data, null, 2), "utf-8").toString("base64"),
-        encoding: "base64"
-      })
-    });
-    if (!blobRes.ok) throw new Error(`failed to create blob for ${file.path}: ` + blobRes.status);
-    const blobSha = (await blobRes.json()).sha;
-    treeEntries.push({ path: file.path, mode: "100644", type: "blob", sha: blobSha });
-  }
-
-  const treeRes = await fetch(`${GITHUB_API}/repos/${owner}/${name}/git/trees`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ base_tree: baseTreeSha, tree: treeEntries })
-  });
-  if (!treeRes.ok) throw new Error("failed to create tree: " + treeRes.status);
-  const newTreeSha = (await treeRes.json()).sha;
-
-  const newCommitRes = await fetch(`${GITHUB_API}/repos/${owner}/${name}/git/commits`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ message, tree: newTreeSha, parents: [baseCommitSha] })
-  });
-  if (!newCommitRes.ok) throw new Error("failed to create commit: " + newCommitRes.status);
-  const newCommitSha = (await newCommitRes.json()).sha;
-
-  const updateRefRes = await fetch(`${GITHUB_API}/repos/${owner}/${name}/git/refs/heads/${branch}`, {
-    method: "PATCH",
-    headers,
-    body: JSON.stringify({ sha: newCommitSha })
-  });
-  if (!updateRefRes.ok) throw new Error("failed to update branch ref: " + updateRefRes.status);
 }
 
 // 매일 KST 기준 날짜로 "그날의 지역별/직종별 공고 건수"만 아주 가볍게 누적 기록합니다.
