@@ -258,6 +258,16 @@
     document.getElementById("jobModalRequirements").textContent = job.requirements || "제한 없음";
     document.getElementById("jobModalAddress").textContent = job.address || "등록된 주소 정보가 없습니다.";
 
+    var contactWrap = document.getElementById("jobModalContactWrap");
+    if (contactWrap) {
+      if (job.contact) {
+        contactWrap.hidden = false;
+        document.getElementById("jobModalContactText").textContent = job.contact;
+      } else {
+        contactWrap.hidden = true;
+      }
+    }
+
     var preferredWrap = document.getElementById("jobModalPreferredWrap");
     var requestId = ++jobModalPreferredRequestSeq;
     if (job.preferred) {
