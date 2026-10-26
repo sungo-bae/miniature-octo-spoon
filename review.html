@@ -69,7 +69,7 @@
       <h1 class="section-title" style="font-size:clamp(1.6rem,3.4vw,2.2rem);">이용후기 작성</h1>
       <p class="section-desc">
         실버잡을 통해 일자리나 사회공헌활동을 찾으셨나요? 다른 분들에게도 큰 힘이 됩니다.
-        후기는 실버잡 담당자가 확인 후 홈페이지에 게시해 드립니다.
+        부모님을 대신해 자녀분이 남겨주셔도 좋습니다. 후기는 실버잡 담당자가 확인 후 홈페이지에 게시해 드립니다.
       </p>
 
       <form
@@ -87,13 +87,18 @@
 
         <div class="form-row two-col">
           <div>
-            <label for="rvName">성함 (예: 김○○ 님으로 표시) *</label>
+            <label for="rvName">일자리를 찾으신 분 성함 (예: 김○○ 님으로 표시) *</label>
             <input type="text" id="rvName" name="name" required>
           </div>
           <div>
-            <label for="rvAge">나이 *</label>
-            <input type="number" id="rvAge" name="age" min="50" max="100" required>
+            <label for="rvAge">일자리를 찾으신 분 나이 *</label>
+            <input type="number" id="rvAge" name="age" min="1" max="120" required>
           </div>
+        </div>
+
+        <div class="form-row">
+          <label for="rvWriter">작성자 (선택)</label>
+          <input type="text" id="rvWriter" name="writer" placeholder="본인이 작성 시 비워두세요. 자녀분이 대신 작성 시 '자녀' 등으로 적어주세요.">
         </div>
 
         <div class="form-row">
