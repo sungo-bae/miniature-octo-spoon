@@ -42,8 +42,13 @@
 ## 설정
 
 1. Supabase에 `supabase/migrations/20261026000000_silverjob_analytics.sql`을 적용합니다.
-2. 공공데이터포털에서 노인 일자리 구인정보 API를 활용신청합니다. `pipeline/configs/kordi.example.json`을 명세에 맞게 채워 `pipeline/configs/kordi.json`으로 저장합니다.
+2. 공공데이터포털에서 [한국노인인력개발원 노인 구인정보](https://www.data.go.kr/data/15015153/openapi.do) API를 활용신청하고 인증키를 받습니다.
+   - 수집기 `pipeline/sources.py`의 `from_senuri`가 `SenuriService/getJobList`(XML)에서 접수 중인 공고 전체를 받습니다.
+   - 근무지(`workPlcNm`)에서 시도·시군구를, 직종(`jobclsNm`), 고용형태(`emplymShp`), 접수기간(`frDd`~`toDd`)을 정규화합니다.
+   - 광주·전남은 API 표기에 맞춰 `전남광주` 하나로 묶습니다.
 3. GitHub 저장소 Secrets에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DATA_GO_KR_SERVICE_KEY`를 등록합니다.
+   - 인증키는 인코딩된 키와 원본 키 중 어느 것을 넣어도 됩니다.
+   - 인증키 오류나 호출 한도 초과가 나면 그날 수집은 반영하지 않습니다. 반영하면 공고가 일괄 마감으로 기록되기 때문입니다.
 4. (선택) KOSIS 시도별 65세 이상 인구를 `region_population`에 적재합니다. 이 데이터가 있어야 기회 지수가 계산됩니다.
 
 수동 적재는 `python -m pipeline.ingest --source manual --csv 파일.csv`로 할 수 있습니다. CSV 헤더는 정규화 필드명을 씁니다.

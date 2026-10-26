@@ -21,12 +21,7 @@ jobs:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - name: Ingest
-        run: |
-          if [ ! -f pipeline/configs/kordi.json ]; then
-            echo "::warning::pipeline/configs/kordi.json 이 없어 수집을 건너뜁니다 (kordi.example.json 참고)"
-            exit 0
-          fi
-          python -m pipeline.ingest --source kordi --api-config pipeline/configs/kordi.json
+        run: python -m pipeline.ingest --source kordi
       - name: Forecast
         run: python -m pipeline.forecast
 
