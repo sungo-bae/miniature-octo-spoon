@@ -298,11 +298,13 @@
         contactBtn.textContent = "지원하기 (원문 공고로 이동)";
         contactBtn.target = "_blank";
         contactBtn.rel = "noopener";
+        contactBtn.setAttribute("data-external-apply", "1");
       } else {
         contactBtn.href = KAKAO_CHANNEL_URL || "#";
         contactBtn.textContent = "💬 카카오톡으로 문의하기";
         contactBtn.target = "_blank";
         contactBtn.rel = "noopener";
+        contactBtn.removeAttribute("data-external-apply");
       }
     }
 
@@ -326,9 +328,58 @@
       if (e.target === jobModalBackdrop) closeJobModal();
     });
     document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape" && !jobModalBackdrop.hidden) closeJobModal();
+      if (e.key === "Escape" && !jobModalBackdrop.hidden && (!applyNoticeBackdrop || applyNoticeBackdrop.hidden)) closeJobModal();
     });
   }
+
+  // "지원하기" 버튼이 work24 등 외부 사이트로 연결될 때(data-external-apply 속성이 붙은
+  // 링크), 바로 이동시키지 않고 안내 모달을 먼저 띄웁니다. 지역업체 등록 공고(카카오톡
+  // 문의)는 이 속성이 없어서 평소처럼 바로 이동합니다.
+  var applyNoticeBackdrop = document.getElementById("applyNoticeBackdrop");
+  var applyNoticeLastFocused = null;
+  var pendingApplyUrl = null;
+
+  function openApplyNotice(url) {
+    if (!applyNoticeBackdrop) {
+      window.open(url, "_blank", "noopener");
+      return;
+    }
+    pendingApplyUrl = url;
+    applyNoticeLastFocused = document.activeElement;
+    applyNoticeBackdrop.hidden = false;
+    document.body.style.overflow = "hidden";
+  }
+
+  function closeApplyNotice() {
+    if (!applyNoticeBackdrop) return;
+    applyNoticeBackdrop.hidden = true;
+    document.body.style.overflow = jobModalBackdrop && !jobModalBackdrop.hidden ? "hidden" : "";
+    pendingApplyUrl = null;
+    if (applyNoticeLastFocused && applyNoticeLastFocused.focus) applyNoticeLastFocused.focus();
+  }
+
+  if (applyNoticeBackdrop) {
+    document.getElementById("applyNoticeClose").addEventListener("click", closeApplyNotice);
+    document.getElementById("applyNoticeCancel").addEventListener("click", closeApplyNotice);
+    document.getElementById("applyNoticeContinue").addEventListener("click", function () {
+      var url = pendingApplyUrl;
+      closeApplyNotice();
+      if (url) window.open(url, "_blank", "noopener");
+    });
+    applyNoticeBackdrop.addEventListener("click", function (e) {
+      if (e.target === applyNoticeBackdrop) closeApplyNotice();
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !applyNoticeBackdrop.hidden) closeApplyNotice();
+    });
+  }
+
+  document.addEventListener("click", function (e) {
+    var link = e.target.closest ? e.target.closest("a[data-external-apply]") : null;
+    if (!link) return;
+    e.preventDefault();
+    openApplyNotice(link.href);
+  });
 
   function handleJobCardActivate(target) {
     var card = target.closest ? target.closest(".job-card") : null;

@@ -205,6 +205,20 @@ ${bodyHtml}
   <p class="footer-copy">© 2026 실버잡(silverjob.kr) · 운영: 성오테크. All rights reserved.</p>
 </footer>
 
+<!-- ===== 외부 사이트 이동 안내 모달 ===== -->
+<div class="job-modal-backdrop" id="applyNoticeBackdrop" hidden>
+  <div class="job-modal" role="dialog" aria-modal="true" aria-labelledby="applyNoticeTitle" style="max-width:480px;">
+    <button type="button" class="job-modal-close" id="applyNoticeClose" aria-label="닫기">✕</button>
+    <h2 id="applyNoticeTitle" style="font-size:1.25rem; margin:0 0 12px;">고용24(워크넷)로 이동합니다</h2>
+    <p style="margin:0 0 16px;">실버잡을 벗어나 정부가 운영하는 공식 채용 사이트로 연결됩니다. 화면이 낯설게 느껴지시면, 아래 가이드를 먼저 봐주세요.</p>
+    <p style="margin:0 0 20px;"><a href="/apply-guide.html" style="text-decoration:underline; font-weight:700;">📖 지원 방법 가이드 보기</a></p>
+    <div class="job-modal-actions" style="display:flex; gap:10px; flex-wrap:wrap;">
+      <button type="button" class="btn btn-primary btn-lg" id="applyNoticeContinue">계속 이동하기</button>
+      <button type="button" class="btn btn-outline btn-lg" id="applyNoticeCancel">닫기</button>
+    </div>
+  </div>
+</div>
+
 <script src="/js/main.js"></script>
 </body>
 </html>
@@ -253,7 +267,7 @@ export function jobDetailPage(job, slug, fallbackDate) {
       ${job.source ? `<p style="color:var(--color-text-muted); font-size:.9rem; margin-top:24px;">출처: ${escapeHtml(job.source)}</p>` : ""}
 
       <div style="margin-top:28px;">
-        <a href="${escapeHtml(applyHref)}" class="btn btn-primary btn-lg" target="_blank" rel="noopener">${applyLabel}</a>
+        <a href="${escapeHtml(applyHref)}" class="btn btn-primary btn-lg"${job.applyUrl ? ' data-external-apply="1"' : ""} target="_blank" rel="noopener">${applyLabel}</a>
       </div>
 `;
 
