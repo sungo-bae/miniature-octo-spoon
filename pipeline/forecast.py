@@ -21,6 +21,8 @@ HORIZON = 4          # 몇 주 앞까지 예측할지
 MIN_TRAIN = 8        # 백테스트 시점마다 필요한 최소 학습 주 수
 BACKTEST_ORIGINS = 12
 MIN_WEEKS_TO_PUBLISH = 16
+MIN_WEEKLY_VOLUME = 3   # 최근 8주 평균이 이보다 적으면 "0~2건" 같은 예측이라 공개하지 않는다
+UNKNOWN_REGION = "지역 미상"
 SEASON = 52
 
 
@@ -120,7 +122,8 @@ def forecast_series(y):
     return {
         "method": method,
         "rel_mae": round(float(rel_mae), 3),
-        "publishable": bool(rel_mae < 1 and method != "naive" and len(y) >= MIN_WEEKS_TO_PUBLISH),
+        "publishable": bool(rel_mae < 1 and method != "naive" and len(y) >= MIN_WEEKS_TO_PUBLISH
+                            and y[-8:].mean() >= MIN_WEEKLY_VOLUME),
         "steps": out,
     }
 
@@ -128,7 +131,7 @@ def forecast_series(y):
 def weekly_matrix(postings, today):
     """공고 목록 → (주 시작일 × 시도) 신규 공고 수. 빈 주는 0, 진행 중인 이번 주는 제외."""
     df = pd.DataFrame(postings)
-    df["sido"] = df["sido"].fillna("지역 미상")
+    df["sido"] = df["sido"].fillna(UNKNOWN_REGION)
     df["day"] = pd.to_datetime(df["posted_date"].fillna(df["first_seen_date"]))
     df["week"] = df["day"].dt.to_period("W-SUN").dt.start_time
     this_week = pd.Timestamp(today - timedelta(days=today.weekday()))
@@ -154,6 +157,8 @@ def build_forecasts(postings, today):
         result = forecast_series(table[sido].to_numpy())
         if not result:
             continue
+        if sido == UNKNOWN_REGION:
+            result["publishable"] = False
         for s in result["steps"]:
             rows.append({
                 "generated_on": today.isoformat(),

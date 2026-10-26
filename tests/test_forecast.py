@@ -39,3 +39,9 @@ def test_build_forecasts_weeks_follow_last_complete_week():
     weeks = sorted({r["week_start"] for r in rows})
     assert weeks == ["2026-10-26", "2026-11-02", "2026-11-09", "2026-11-16"]
     assert {r["sido"] for r in rows} == {"경기도", "지역 미상", "전국"}
+
+
+def test_low_volume_region_is_not_published():
+    rng = np.random.default_rng(2)
+    result = forecast.forecast_series(rng.poisson(1, 40))
+    assert result["publishable"] is False
