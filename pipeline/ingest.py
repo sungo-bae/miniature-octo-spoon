@@ -29,7 +29,8 @@ def main(argv=None):
     if args.csv:
         rows = sources.from_csv(args.csv)
     elif args.source == "kordi":
-        rows = sources.from_senuri(os.environ["DATA_GO_KR_SERVICE_KEY"], run_date)
+        key = os.environ["DATA_GO_KR_SERVICE_KEY"]
+        rows = sources.from_senuri(key, run_date)
     else:
         ap.error(f"출처 {args.source!r}에는 --csv 가 필요합니다")
 
@@ -37,7 +38,16 @@ def main(argv=None):
     if not rows:
         raise SystemExit(f"{args.source}: 0건 수집 — 출처 장애로 보고 반영하지 않습니다.")
 
-    result = SupabaseRest().rpc(
+    db = SupabaseRest()
+    if args.source == "kordi":
+        # 상세조회는 느려서(건당 수 초) 지역을 아직 모르는 새 공고만 조회한다.
+        # 이미 지역이 채워진 공고는 DB 함수가 기존 값을 유지한다.
+        known = {r["source_id"] for r in db.select("job_postings", {
+            "select": "source_id", "source": "eq.kordi", "sido": "not.is.null", "closed_date": "is.null"})}
+        filled = sources.fill_missing_regions(key, [r for r in rows if r["source_id"] not in known])
+        print(f"상세조회로 지역 보완: {filled}건")
+
+    result = db.rpc(
         "ingest_postings", p_run_date=args.run_date, p_source=args.source, p_rows=rows)
     print(json.dumps({"run_date": args.run_date, "source": args.source, **result}, ensure_ascii=False))
 

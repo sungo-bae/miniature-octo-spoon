@@ -43,9 +43,11 @@
 
 1. Supabase에 `supabase/migrations/20261026000000_silverjob_analytics.sql`을 적용합니다.
 2. 공공데이터포털에서 [한국노인인력개발원 노인 구인정보](https://www.data.go.kr/data/15015153/openapi.do) API를 활용신청하고 인증키를 받습니다.
-   - 수집기 `pipeline/sources.py`의 `from_senuri`가 `SenuriService/getJobList`(XML)에서 접수 중인 공고 전체를 받습니다.
-   - 근무지(`workPlcNm`)에서 시도·시군구를, 직종(`jobclsNm`), 고용형태(`emplymShp`), 접수기간(`frDd`~`toDd`)을 정규화합니다.
+   - `from_senuri`가 `SenuriService/getJobList`(XML, 시작접수일 최신순)에서 접수 중인 공고 전체를 받습니다(하루 약 300건, 7페이지 안팎).
+   - **직종:** API 직종 필드(`jobclsNm`)는 대부분 비어 있어서 제목 키워드로 분류합니다. 청소·미화, 경비·보안, 조리·급식, 돌봄·복지 등 10개 직종으로 나눕니다(`CATEGORY_KEYWORDS`).
+   - **지역:** 근무지(`workPlcNm`)가 비어 있는 공고는 상세조회(`getJobInfo`)의 사업장 주소로 보완합니다. 실측으로 지역 미상이 55%에서 4%로 줄었습니다. 상세조회는 건당 수 초가 걸려서 새 공고만 조회합니다.
    - 광주·전남은 API 표기에 맞춰 `전남광주` 하나로 묶습니다.
+   - 처음 한 번 `python -m pipeline.backfill --since 2024-10-01`을 실행하면 과거 공고로 주간 추세를 채워, 첫날부터 예측을 쓸 수 있습니다.
 3. GitHub 저장소 Secrets에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DATA_GO_KR_SERVICE_KEY`를 등록합니다.
    - 인증키는 인코딩된 키와 원본 키 중 어느 것을 넣어도 됩니다.
    - 인증키 오류나 호출 한도 초과가 나면 그날 수집은 반영하지 않습니다. 반영하면 공고가 일괄 마감으로 기록되기 때문입니다.

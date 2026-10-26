@@ -179,7 +179,11 @@ def main(argv=None):
 
     from pipeline.supabase_rest import SupabaseRest
     db = SupabaseRest()
-    postings = db.select("job_postings", {"select": "sido,posted_date,first_seen_date"})
+    postings = db.select("job_postings", {"select": "source,source_id,sido,posted_date,first_seen_date"})
+    seen = {(p["source"], p["source_id"]) for p in postings}
+    history = db.select("job_postings_history", {"select": "source,source_id,sido,posted_date"})
+    postings += [dict(h, first_seen_date=h["posted_date"]) for h in history
+                 if (h["source"], h["source_id"]) not in seen]
     rows = build_forecasts(postings, today)
     if args.dry_run:
         print(json.dumps(rows, ensure_ascii=False, indent=1))

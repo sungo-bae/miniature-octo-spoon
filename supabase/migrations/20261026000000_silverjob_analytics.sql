@@ -56,6 +56,22 @@ create table if not exists public.ingest_runs (
   primary key (run_date, source)
 );
 
+-- 과거 공고(1회성 보충): API에 남아 있는 지난 공고의 게시일·지역·직종.
+-- 수집을 시작하기 전 기간의 주간 추세를 채워 예측을 바로 시작할 수 있게 한다.
+-- 실제 마감일은 알 수 없으므로 마감 속도 분석에는 쓰지 않는다.
+create table if not exists public.job_postings_history (
+  source          text not null,
+  source_id       text not null,
+  title           text,
+  sido            text,
+  sigungu         text,
+  category        text,
+  employment_type text,
+  posted_date     date not null,
+  deadline_date   date,
+  primary key (source, source_id)
+);
+
 -- 일별 흐름 집계: 수집할 때 스냅샷을 비교해 확정 기록한다.
 -- (마감됐다 다시 올라온 공고도 그날의 마감/재게시가 정확히 남는다)
 create table if not exists public.job_daily_stats (
@@ -127,8 +143,9 @@ begin
   on conflict (source, source_id) do update set
     title           = excluded.title,
     org_name        = excluded.org_name,
-    sido            = excluded.sido,
-    sigungu         = excluded.sigungu,
+    -- 상세조회로 채운 지역은 다음 날 상세조회를 건너뛰어도 유지한다
+    sido            = coalesce(excluded.sido, j.sido),
+    sigungu         = case when excluded.sido is null then j.sigungu else excluded.sigungu end,
     category        = excluded.category,
     employment_type = excluded.employment_type,
     wage_amount     = excluded.wage_amount,
@@ -203,11 +220,19 @@ select day, sido, category,
 -- 출처가 게시일을 주면 그것을 쓴다 → 수집 시작 전 기간도 추세에 반영된다.
 create or replace view public.v_weekly_trend
 with (security_invoker = true) as
-with weekly as (
-  select date_trunc('week', coalesce(posted_date, first_seen_date))::date as week_start,
+with all_postings as (
+  select source, source_id, coalesce(posted_date, first_seen_date) as posted, sido
+    from public.job_postings
+  union all
+  select h.source, h.source_id, h.posted_date, h.sido
+    from public.job_postings_history h
+   where not exists (select 1 from public.job_postings j
+                      where j.source = h.source and j.source_id = h.source_id)
+), weekly as (
+  select date_trunc('week', posted)::date as week_start,
          sido,
          count(*) as new_count
-    from public.job_postings
+    from all_postings
    group by 1, 2
 )
 select
@@ -293,12 +318,14 @@ select sido, category, week_start, expected, lower, upper, method, backtest_rel_
 -- 홈페이지(anon)는 읽기만, 쓰기는 서비스 롤(수집/예측 배치)만.
 alter table public.job_postings      enable row level security;
 alter table public.job_snapshots     enable row level security;
+alter table public.job_postings_history enable row level security;
 alter table public.region_population enable row level security;
 alter table public.ingest_runs       enable row level security;
 alter table public.job_daily_stats   enable row level security;
 alter table public.job_forecasts     enable row level security;
 
 create policy "public read postings"   on public.job_postings      for select to anon, authenticated using (true);
+create policy "public read history"    on public.job_postings_history for select to anon, authenticated using (true);
 create policy "public read population" on public.region_population for select to anon, authenticated using (true);
 create policy "public read runs"       on public.ingest_runs       for select to anon, authenticated using (true);
 create policy "public read daily"      on public.job_daily_stats   for select to anon, authenticated using (true);

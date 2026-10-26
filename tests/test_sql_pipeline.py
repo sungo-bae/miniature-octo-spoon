@@ -93,3 +93,18 @@ def test_anon_cannot_call_ingest(db):
     with pytest.raises(psycopg.errors.InsufficientPrivilege):
         ingest(db, date(2026, 1, 5), [row("a")])
     db.execute("reset role")
+
+
+def test_region_filled_by_detail_survives_next_day(db):
+    ingest(db, date(2026, 1, 5), [row("a", sido="인천광역시")])
+    ingest(db, date(2026, 1, 6), [row("a", sido=None)])  # 다음 날은 상세조회를 건너뜀
+    assert db.execute("select sido from job_postings").fetchone()[0] == "인천광역시"
+
+
+def test_weekly_trend_includes_history_without_double_counting(db):
+    ingest(db, date(2026, 1, 5), [dict(row("a"), posted_date="2026-01-05")])
+    db.execute("""insert into job_postings_history (source, source_id, sido, posted_date) values
+                  ('test', 'a', '서울특별시', '2026-01-05'),
+                  ('test', 'old', '서울특별시', '2025-12-29')""")
+    trend = db.execute("select week_start, new_count from v_weekly_trend order by 1").fetchall()
+    assert trend == [(date(2025, 12, 29), 1), (date(2026, 1, 5), 1)]
