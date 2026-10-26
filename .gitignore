@@ -4,3 +4,6 @@ node_modules/
 *.log
 dist/
 build/
+__pycache__/
+.pytest_cache/
+pipeline/configs/*.local.json
