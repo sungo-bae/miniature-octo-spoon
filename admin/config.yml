@@ -34,6 +34,7 @@ collections:
               - { label: "직종 (신청서에 적힌 그대로)", name: "jobType", widget: "string", required: false }
               - { label: "근무조건", name: "condition", widget: "string", required: false }
               - { label: "급여", name: "pay", widget: "string", required: false }
+              - { label: "근무지 주소", name: "address", widget: "string", required: false }
               - { label: "상세 내용", name: "detail", widget: "text", required: false }
 
   - name: "jobs"

@@ -80,6 +80,7 @@ export default async (req) => {
     jobType: data.jobType || "",
     condition: data.condition || "",
     pay: data.pay || "",
+    address: data.address || "",
     detail: data.detail || ""
   };
 
