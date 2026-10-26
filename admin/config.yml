@@ -37,6 +37,29 @@ collections:
               - { label: "근무지 주소", name: "address", widget: "string", required: false }
               - { label: "상세 내용", name: "detail", widget: "text", required: false }
 
+  - name: "reviews-pending"
+    label: "이용후기 등록 신청 (검토 대기)"
+    files:
+      - name: "reviews-pending"
+        label: "검토 대기 목록"
+        file: "content/reviews-pending.json"
+        fields:
+          - { label: "안내", name: "note", widget: "string", required: false }
+          - label: "검토 대기 목록"
+            name: "submissions"
+            widget: "list"
+            summary: "{{name}} · {{jobTitle}} ({{status}})"
+            fields:
+              - { label: "상태", name: "status", widget: "select", options: ["pending", "approved", "rejected"], default: "pending" }
+              - { label: "접수 시각", name: "submittedAt", widget: "string", required: false }
+              - { label: "성함 (신청서에 적힌 그대로, 공개 전 '김○○ 님' 형식으로 가려야 함)", name: "name", widget: "string" }
+              - { label: "나이", name: "age", widget: "string", required: false }
+              - { label: "작성자 (본인 작성 시 비어있음, 자녀 등 대리 작성 시 표시)", name: "writer", widget: "string", required: false }
+              - { label: "직종", name: "jobTitle", widget: "string", required: false }
+              - { label: "후기 내용", name: "content", widget: "text" }
+              - { label: "연락처", name: "phone", widget: "string", required: false }
+              - { label: "이메일", name: "email", widget: "string", required: false }
+
   - name: "jobs"
     label: "채용정보"
     files:
