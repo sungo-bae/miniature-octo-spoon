@@ -103,7 +103,7 @@ export function buildJobPostingJsonLd(job, slug, fallbackDate) {
   return jsonLd;
 }
 
-export function pageShell({ title, description, slug, path, bodyHtml, jsonLd }) {
+export function pageShell({ title, description, slug, path, bodyHtml, jsonLd, noindex }) {
   const url = `${SITE_URL}${path || `/jobs/${slug}.html`}`;
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -112,7 +112,7 @@ export function pageShell({ title, description, slug, path, bodyHtml, jsonLd }) 
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(title)} | 실버잡</title>
 <meta name="description" content="${escapeHtml(description)}">
-<link rel="canonical" href="${url}">
+${noindex ? `<meta name="robots" content="noindex,follow">\n` : ""}<link rel="canonical" href="${url}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="실버잡">
 <meta property="og:locale" content="ko_KR">
@@ -255,11 +255,15 @@ export function jobDetailPage(job, slug, fallbackDate) {
       </div>
 `;
 
+  // work24에서 받아온 공고 상당수는 description이 비어있어 페이지 내용이 얇습니다.
+  // 수천 건을 그대로 구글에 색인 요청하면 저품질/중복 콘텐츠로 비칠 수 있어
+  // noindex로 둡니다 — 사용자·링크 이동(지원하기 등)에는 영향 없습니다.
   return pageShell({
     title: job.title,
     description: truncate(buildDescription(job), 160),
     slug,
     bodyHtml,
-    jsonLd
+    jsonLd,
+    noindex: true
   });
 }

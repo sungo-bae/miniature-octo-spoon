@@ -70,7 +70,8 @@ function notFoundPage() {
     description: "요청하신 채용정보를 찾을 수 없습니다.",
     path: "/jobs/",
     bodyHtml,
-    jsonLd: null
+    jsonLd: null,
+    noindex: true
   });
 }
 

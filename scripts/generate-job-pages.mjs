@@ -320,7 +320,12 @@ function buildReportPage(stats, history) {
   });
 }
 
-function buildSitemap(entries) {
+// 공고 상세페이지(/jobs/<slug>.html)는 사이트맵에 넣지 않습니다. work24 공고 상당수는
+// description이 비어있어 내용이 얇은데, 수천 건을 전부 구글에 색인 요청하면 저품질/중복
+// 콘텐츠로 비칠 위험이 있습니다(실제로 이게 애드센스 심사에서 문제가 됐을 가능성이 큽니다).
+// 해당 페이지들에는 noindex도 걸려있어(job-template.mjs 참고), 여기서 빼는 것과 함께
+// "실버잡이 직접 쓴 콘텐츠"만 색인 대상으로 남도록 합니다.
+function buildSitemap() {
   const staticUrls = [
     { loc: "/", changefreq: "daily", priority: "1.0" },
     { loc: "/about.html", changefreq: "monthly", priority: "0.6" },
@@ -334,14 +339,7 @@ function buildSitemap(entries) {
     { loc: "/jobs/index.html", changefreq: "daily", priority: "0.7" }
   ];
 
-  const jobUrls = entries.map(({ slug }) => ({
-    loc: `/jobs/${slug}.html`,
-    changefreq: "daily",
-    priority: "0.8"
-  }));
-
-  const all = staticUrls.concat(jobUrls);
-  const body = all
+  const body = staticUrls
     .map(
       (u) =>
         `  <url>\n    <loc>${SITE_URL}${u.loc}</loc>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
@@ -366,7 +364,7 @@ function main() {
   rmSync(JOBS_DIR, { recursive: true, force: true });
   mkdirSync(JOBS_DIR, { recursive: true });
   writeFileSync(join(JOBS_DIR, "index.html"), jobIndexPage(entries), "utf-8");
-  writeFileSync(join(ROOT, "sitemap.xml"), buildSitemap(entries), "utf-8");
+  writeFileSync(join(ROOT, "sitemap.xml"), buildSitemap(), "utf-8");
 
   const reportStats = computeReportStats(entries.map((e) => e.job));
   const statsHistory = readStatsHistory(join(ROOT, "content", "jobs-stats-history.json"));
