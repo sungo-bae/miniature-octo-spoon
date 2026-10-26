@@ -83,7 +83,13 @@ async function fetchThemePage(apiKey, themeCode, pageNo) {
   url.searchParams.set("intrsThemaArray", themeCode);
 
   const res = await fetch(url.toString());
-  if (!res.ok) throw new Error(`welfare API request failed (theme ${themeCode}, page ${pageNo}): ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    // data.go.kr는 실패해도 보통 200/403과 함께 resultCode/resultMsg가 담긴 XML을
+    // 내려주므로, 원인 파악을 위해 응답 본문을 로그에 그대로 남깁니다(서비스키는
+    // URL에 포함되어 있지 않은 응답 본문이라 안전합니다).
+    throw new Error(`welfare API request failed (theme ${themeCode}, page ${pageNo}): ${res.status} — ${body.slice(0, 500)}`);
+  }
   const xml = await res.text();
   const totalCount = parseInt(extractTag(xml, "totalCount"), 10) || 0;
   return { blocks: splitServiceBlocks(xml), totalCount };
