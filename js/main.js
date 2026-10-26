@@ -553,19 +553,28 @@
 
     function welfareCardHTML(item) {
       var metaParts = [item.theme, item.region].filter(Boolean);
+      var detailParts = [];
+      if (item.applyMethod) detailParts.push("신청방법: " + item.applyMethod);
+      if (item.benefitType) detailParts.push("지원형태: " + item.benefitType);
       return (
         '<div class="legal-box" style="margin-bottom:14px;">' +
           '<p style="margin:0; font-size:.8rem; color:var(--color-text-muted);">' + metaParts.join(" · ") + '</p>' +
           '<p style="margin:6px 0 0; font-weight:700;">' + (item.title || "") + '</p>' +
           (item.description ? '<p style="margin:6px 0 0;">' + item.description + '</p>' : "") +
-          (item.lastModYmd ? '<p style="margin:8px 0 0; font-size:.8rem; color:var(--color-text-muted);">갱신일: ' + formatYmd(item.lastModYmd) + '</p>' : "") +
+          (detailParts.length ? '<p style="margin:8px 0 0; font-size:.85rem;">' + detailParts.join(" · ") + '</p>' : "") +
+          '<p style="margin:8px 0 0; font-size:.8rem; color:var(--color-text-muted);">' +
+            (item.lastModYmd ? "갱신일: " + formatYmd(item.lastModYmd) : "") +
+            (item.url ? ' · <a href="' + item.url + '" target="_blank" rel="noopener" style="text-decoration:underline; font-weight:700;">복지로에서 자세히 보기 →</a>' : "") +
+          '</p>' +
         '</div>'
       );
     }
 
     function renderWelfareList() {
+      // theme은 "서민금융, 일자리"처럼 해당 서비스의 모든 관심주제가 쉼표로 묶여
+      // 내려오므로, 필터 버튼 라벨이 그 안에 포함되어 있는지로 판단합니다.
       var filtered = activeWelfareTheme
-        ? allWelfareServices.filter(function (s) { return s.theme === activeWelfareTheme; })
+        ? allWelfareServices.filter(function (s) { return (s.theme || "").indexOf(activeWelfareTheme) !== -1; })
         : allWelfareServices;
       welfareList.innerHTML = filtered.map(welfareCardHTML).join("");
       if (welfareEmpty) welfareEmpty.hidden = filtered.length > 0;
