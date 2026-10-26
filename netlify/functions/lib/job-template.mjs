@@ -144,6 +144,7 @@ ${jsonLd ? `<script type="application/ld+json">\n${JSON.stringify(jsonLd, null, 
       <a href="/about.html">실버잡 소개</a>
       <a href="/tips.html">구직 꿀팁</a>
       <a href="/apply-guide.html">지원 방법 가이드</a>
+      <a href="/welfare.html">복지정보</a>
       <a href="/faq.html">자주 묻는 질문</a>
       <a href="/report.html">현황 리포트</a>
       <a href="/#how">이용방법</a>
@@ -193,6 +194,7 @@ ${bodyHtml}
       <a href="/about.html">실버잡 소개</a>
       <a href="/tips.html">구직 꿀팁</a>
       <a href="/apply-guide.html">지원 방법 가이드</a>
+      <a href="/welfare.html">복지정보</a>
       <a href="/faq.html">자주 묻는 질문</a>
       <a href="/report.html">현황 리포트</a>
       <a href="/terms.html">이용약관</a>

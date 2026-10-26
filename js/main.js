@@ -536,6 +536,69 @@
     .then(function (data) { renderReviews(data.reviews && data.reviews.length ? data.reviews : FALLBACK_REVIEWS); })
     .catch(function () { renderReviews(FALLBACK_REVIEWS); });
 
+  /* ---------------- 어르신 복지정보 (welfare.html 전용, content/welfare-info.json에서 불러옴) ---------------- */
+  var welfareList = document.getElementById("welfareList");
+  if (welfareList) {
+    var welfareStatus = document.getElementById("welfareStatus");
+    var welfareEmpty = document.getElementById("welfareEmpty");
+    var welfareSyncedAt = document.getElementById("welfareSyncedAt");
+    var welfareFilter = document.getElementById("welfareFilter");
+    var allWelfareServices = [];
+    var activeWelfareTheme = "";
+
+    function formatYmd(ymd) {
+      var m = /^(\d{4})(\d{2})(\d{2})$/.exec(ymd || "");
+      return m ? m[1] + "." + m[2] + "." + m[3] : "";
+    }
+
+    function welfareCardHTML(item) {
+      var metaParts = [item.theme, item.region].filter(Boolean);
+      return (
+        '<div class="legal-box" style="margin-bottom:14px;">' +
+          '<p style="margin:0; font-size:.8rem; color:var(--color-text-muted);">' + metaParts.join(" · ") + '</p>' +
+          '<p style="margin:6px 0 0; font-weight:700;">' + (item.title || "") + '</p>' +
+          (item.description ? '<p style="margin:6px 0 0;">' + item.description + '</p>' : "") +
+          (item.lastModYmd ? '<p style="margin:8px 0 0; font-size:.8rem; color:var(--color-text-muted);">갱신일: ' + formatYmd(item.lastModYmd) + '</p>' : "") +
+        '</div>'
+      );
+    }
+
+    function renderWelfareList() {
+      var filtered = activeWelfareTheme
+        ? allWelfareServices.filter(function (s) { return s.theme === activeWelfareTheme; })
+        : allWelfareServices;
+      welfareList.innerHTML = filtered.map(welfareCardHTML).join("");
+      if (welfareEmpty) welfareEmpty.hidden = filtered.length > 0;
+    }
+
+    if (welfareFilter) {
+      welfareFilter.addEventListener("click", function (e) {
+        var btn = e.target.closest ? e.target.closest("[data-welfare-theme]") : null;
+        if (!btn) return;
+        activeWelfareTheme = btn.getAttribute("data-welfare-theme") || "";
+        Array.prototype.forEach.call(welfareFilter.querySelectorAll("[data-welfare-theme]"), function (b) {
+          b.classList.toggle("btn-primary", b === btn);
+          b.classList.toggle("btn-outline", b !== btn);
+        });
+        renderWelfareList();
+      });
+    }
+
+    fetch("/content/welfare-info.json")
+      .then(function (res) { return res.ok ? res.json() : Promise.reject(res.status); })
+      .then(function (data) {
+        allWelfareServices = data.services || [];
+        if (welfareStatus) welfareStatus.hidden = true;
+        if (welfareSyncedAt && data.syncedAt) {
+          welfareSyncedAt.textContent = "마지막 갱신: " + new Date(data.syncedAt).toLocaleDateString("ko-KR");
+        }
+        renderWelfareList();
+      })
+      .catch(function () {
+        if (welfareStatus) welfareStatus.textContent = "복지정보를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
+      });
+  }
+
   /* ---------------- 검색 폼 ---------------- */
   var searchForm = document.getElementById("searchForm");
   if (searchForm) {
