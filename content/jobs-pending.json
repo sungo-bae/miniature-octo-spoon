@@ -1,4 +1,20 @@
 {
   "note": "채용정보 등록 폼(partner.html)으로 접수된 신청이 검토 대기 상태로 쌓이는 파일입니다. 사이트에는 반영되지 않습니다 — 검토 후 직접 content/jobs.json으로 옮겨야 실제로 공개됩니다.",
-  "submissions": []
+  "submissions": [
+    {
+      "status": "pending",
+      "submittedAt": "2026-10-26T19:13:03.082+09:00",
+      "company": "성오테크",
+      "managerName": "배성오",
+      "phone": "01050819323",
+      "email": "a50819323@gmail.com",
+      "title": "아파트",
+      "region": "경기·인천",
+      "jobType": "사무보조",
+      "condition": "",
+      "pay": "",
+      "address": "장안구 조원동 782-24",
+      "detail": "테스트"
+    }
+  ]
 }
