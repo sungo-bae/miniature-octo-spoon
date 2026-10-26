@@ -330,6 +330,7 @@ function buildSitemap() {
     { loc: "/", changefreq: "daily", priority: "1.0" },
     { loc: "/about.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/tips.html", changefreq: "monthly", priority: "0.6" },
+    { loc: "/apply-guide.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/faq.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/partner.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/review.html", changefreq: "monthly", priority: "0.6" },
