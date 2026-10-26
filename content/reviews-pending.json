@@ -1,4 +1,16 @@
 {
   "note": "이용후기 폼(review.html)으로 접수된 후기가 검토 대기 상태로 쌓이는 파일입니다. 사이트에는 반영되지 않습니다 — 검토 후 이름을 '김○○ 님' 형식으로 가린 뒤 content/reviews.json으로 옮겨야 실제로 공개됩니다.",
-  "submissions": []
+  "submissions": [
+    {
+      "status": "pending",
+      "submittedAt": "2026-10-26T19:10:54.792+09:00",
+      "name": "배성오",
+      "age": "54",
+      "writer": "본인",
+      "jobTitle": "아파트",
+      "content": "테스트",
+      "phone": "01050819323",
+      "email": "a50819323@gmail.com"
+    }
+  ]
 }
