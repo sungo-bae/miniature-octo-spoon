@@ -338,6 +338,7 @@ function buildSitemap() {
     { loc: "/terms.html", changefreq: "yearly", priority: "0.3" },
     { loc: "/privacy.html", changefreq: "yearly", priority: "0.3" },
     { loc: "/report.html", changefreq: "daily", priority: "0.7" },
+    { loc: "/job-weather.html", changefreq: "daily", priority: "0.7" },
     { loc: "/jobs/index.html", changefreq: "daily", priority: "0.7" }
   ];
 
