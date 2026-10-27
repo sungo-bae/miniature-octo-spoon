@@ -106,3 +106,9 @@ def test_ingest_refuses_sudden_drop(monkeypatch, previous, refused):
     else:
         ingest.main(["--source", "work24", "--run-date", "2026-10-27"])
         assert db.rpc_called
+
+
+def test_from_work24_refuses_more_than_it_can_fetch():
+    # 한도를 넘는 공고는 날마다 마감으로 잘못 기록되므로 반영하지 않는다
+    with pytest.raises(SourceError, match="수집 한도"):
+        from_work24("k", date(2026, 10, 27), fetch_text=lambda u: "<wantedRoot><total>99999</total></wantedRoot>")

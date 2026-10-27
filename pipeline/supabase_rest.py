@@ -18,8 +18,10 @@ class SupabaseRest:
         })
 
     def rpc(self, fn, **params):
-        r = self.session.post(f"{self.url}/rest/v1/rpc/{fn}", json=params, timeout=self.timeout)
-        r.raise_for_status()
+        # 고용24처럼 수천 건을 한 번에 반영하면 수십 초가 걸린다
+        r = self.session.post(f"{self.url}/rest/v1/rpc/{fn}", json=params, timeout=max(self.timeout, 300))
+        if not r.ok:
+            raise requests.HTTPError(f"{r.status_code} {fn}: {r.text[:500]}", response=r)
         return r.json()
 
     def select(self, table, params=None, page_size=1000):

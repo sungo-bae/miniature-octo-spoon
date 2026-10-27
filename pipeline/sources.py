@@ -6,6 +6,7 @@
 """
 import csv
 import re
+import sys
 import time
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
@@ -463,7 +464,11 @@ def from_work24(key, today, fetch_text=_get_text, workers=8):
     with ThreadPoolExecutor(max_workers=workers) as pool:
         for _, batch in pool.map(lambda p: _work24_items(fetch_text(page_url(p))), range(2, pages + 1)):
             items += batch
-    if total and len(items) < min(total, pages * WORK24_PAGE_SIZE) * 0.95:
+    print(f"고용24: 전체 {total}건, {pages}페이지에서 {len(items)}건 받음", file=sys.stderr)
+    if total > WORK24_MAX_PAGES * WORK24_PAGE_SIZE:
+        # 다 받지 못한 공고가 날마다 마감으로 잘못 기록되므로 반영하지 않는다
+        raise SourceError(f"고용24: 전체 {total}건이 수집 한도({WORK24_MAX_PAGES}페이지)를 넘습니다")
+    if total and len(items) < total * 0.95:
         raise SourceError(f"고용24: 전체 {total}건 중 {len(items)}건만 받았습니다")
 
     rows = {}
@@ -471,4 +476,5 @@ def from_work24(key, today, fetch_text=_get_text, workers=8):
         rec = work24_record(item)
         if rec and (rec["deadline_date"] is None or rec["deadline_date"] >= today.isoformat()):
             rows[rec["source_id"]] = rec
+    print(f"고용24: 사이트 필터·마감일 적용 후 {len(rows)}건", file=sys.stderr)
     return list(rows.values())
