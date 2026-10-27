@@ -245,7 +245,7 @@
     <div class="card">
       <div class="weeks" id="weeks" role="img"></div>
       <div class="axis" id="axis" aria-hidden="true"></div>
-      <p class="muted" style="margin:10px 0 0">주마다 새로 올라온 민간 구인공고 수예요. 빗금 막대는 예상이에요.</p>
+      <p class="muted" style="margin:10px 0 0">주마다 새로 올라온 노인 구인공고(한국노인인력개발원) 수예요. 빗금 막대는 예상이에요.</p>
       <details><summary>표로 보기</summary><table id="trend-table"></table></details>
     </div>
   </section>
@@ -253,9 +253,11 @@
   <section class="block how" aria-labelledby="h-how">
     <details class="card">
       <summary id="h-how">이 숫자는 어떻게 계산했나요?</summary>
-      <p><b>모집 중인 일자리</b> — 한국노인인력개발원이 공개하는 두 자료를 매일 아침 모아서 셉니다.
-        ① 민간 기업의 노인 구인공고, ② 정부 노인일자리 사업의 참여자 모집.</p>
-      <p><b>새로 올라온 공고</b> — 민간 구인공고가 접수를 시작한 날을 기준으로 한 주(월~일)씩 셉니다.</p>
+      <p><b>모집 중인 일자리</b> — 매일 아침 세 곳의 공공데이터를 모아서 셉니다.
+        ① 고용24(워크넷)의 ‘(준)고령자 우대’ 민간 채용공고, ② 한국노인인력개발원의 노인 구인공고,
+        ③ 정부 노인일자리 사업의 참여자 모집. 같은 공고가 두 곳에 올라오면 한 번만 셉니다.</p>
+      <p><b>새로 올라온 공고</b> — 노인 구인공고(②)가 접수를 시작한 날을 기준으로 한 주(월~일)씩 셉니다.
+        고용24 공고는 몇 주 자료가 쌓이면 함께 셉니다.</p>
       <p><b>일자리 날씨</b> — 지난주 새 공고 수를 최근 4주 평균과 비교해서, 20% 넘게 많으면 ‘맑음’, 20% 넘게 적으면 ‘흐림’, 그 사이면 ‘구름 조금’이에요.</p>
       <p><b>예상</b> — 지난 1년 동안의 주별 공고 수로 몇 가지 계산 방법을 시험해 보고,
         "지난주와 같을 것"이라고 단순히 가정하는 것보다 더 잘 맞았던 방법만 씁니다.
@@ -265,7 +267,7 @@
     </details>
   </section>
 
-  <footer>자료: 한국노인인력개발원(공공데이터포털) · 매일 아침 6시쯤 새로 고쳐집니다.</footer>
+  <footer>자료: 고용24(고용노동부), 한국노인인력개발원(공공데이터포털) · 매일 아침 6시쯤 새로 고쳐집니다.</footer>
 </main>
 <div class="tip" id="tip" role="tooltip"></div>
 
@@ -276,6 +278,7 @@ const SUPABASE_KEY = "sb_publishable_hGMZ7IU3qZZc3jGzUP1ySQ_h1eRn7m0";
 const FORECAST_SOURCE = "kordi";   // 예측과 주간 추세는 민간 구인공고 기준 (pipeline/forecast.py 와 같게)
 const WEEKS = 12;
 const CAT_ICON = {
+  "요양·간병": "🩺", "간호·치료": "💊",
   "청소·미화": "🧹", "경비·보안": "🛡️", "조리·급식": "🍚", "돌봄·복지": "🤝", "운전·배송": "🚚",
   "시설관리·기술": "🔧", "생산·물류": "📦", "사무·전문": "🗂️", "판매·서비스": "🛍️", "기타": "📌",
 };
