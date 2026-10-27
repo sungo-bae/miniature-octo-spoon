@@ -14,6 +14,7 @@ jobs:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+      WORK24_API_KEY: ${{ secrets.WORK24_API_KEY }}
       TZ: Asia/Seoul
     steps:
       - uses: actions/checkout@v4
@@ -21,7 +22,12 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
+      - name: Ingest (고용24)
+        # 노인 구인정보와 겹치는 공고를 거르기 위해 먼저 받는다. 키가 없으면 건너뛴다.
+        if: ${{ env.WORK24_API_KEY != '' }}
+        run: python -m pipeline.ingest --source work24
       - name: Ingest (노인 구인정보)
+        if: ${{ !cancelled() }}
         run: python -m pipeline.ingest --source kordi
       - name: Ingest (자립형일자리 사업모집)
         if: ${{ !cancelled() }}   # 앞 출처가 실패해도 이 출처는 수집한다

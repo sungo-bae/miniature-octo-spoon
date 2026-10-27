@@ -111,7 +111,10 @@ def test_classify_category():
     from pipeline.sources import classify_category
     assert classify_category("[반송동] 아파트 외곽 미화원 구인") == "청소·미화"
     assert classify_category("아파트형 공장 시설 경비 채용") == "경비·보안"
-    assert classify_category("대연동 요양보호사님 모십니다.") == "돌봄·복지"
+    assert classify_category("대연동 요양보호사님 모십니다.") == "요양·간병"
+    assert classify_category("노인복지관 사회복지사 채용") == "돌봄·복지"
+    assert classify_category("요양병원 간호조무사 모집") == "요양·간병"
+    assert classify_category("재활센터 물리치료사 모집") == "간호·치료"
     assert classify_category("구내식당 주방보조/세척원 모집") == "조리·급식"
     assert classify_category("(주) 대보 정직원 채용공고") == "기타"
 

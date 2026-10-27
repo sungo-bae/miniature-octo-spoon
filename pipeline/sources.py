@@ -103,7 +103,9 @@ CATEGORY_KEYWORDS = [
     ("청소·미화", ("미화", "청소", "룸메이드", "환경정리", "세탁")),
     ("경비·보안", ("경비", "보안", "경호", "안전요원", "주차관리")),
     ("조리·급식", ("조리", "주방", "식당", "급식", "배식", "찬모", "세척")),
-    ("돌봄·복지", ("요양", "돌봄", "간병", "보호사", "활동지원", "복지", "보육", "간호", "치료사")),
+    ("요양·간병", ("요양보호", "요양원", "요양병원", "간병", "보호사")),
+    ("간호·치료", ("간호", "치료사", "물리치료", "작업치료")),
+    ("돌봄·복지", ("요양", "돌봄", "활동지원", "복지", "보육")),
     ("운전·배송", ("운전", "배송", "택배", "배달", "수발", "셔틀", "지게차", "승무")),
     ("시설관리·기술", ("시설", "기계", "전기", "설비", "영선", "보일러", "수리", "정비", "CNC", "선반", "기사",
                      "관리인", "관리원")),
@@ -337,4 +339,135 @@ def from_jobbsn_history(key, since, today, fetch_text=_get_text):
             rec = jobbsn_record(item)
             if rec and rec["posted_date"] and since.isoformat() <= rec["posted_date"] <= today.isoformat():
                 rows[rec["source_id"]] = rec
+    return list(rows.values())
+
+
+# ───────────── 고용24(워크넷) 채용정보 — (준)고령자 우대 공고 ─────────────
+# 사이트(netlify/functions/sync-work24-jobs.mjs)와 같은 조건·필터로 받되, 시간 제한 없이
+# 조건에 맞는 공고 전체를 받는다. 사이트 함수는 15초 안에 받은 만큼만 저장해서 날마다
+# 총계가 흔들렸다(일자리가 줄어든 게 아니라 덜 받은 것).
+
+WORK24_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L01.do"
+WORK24_PAGE_SIZE = 100
+WORK24_MAX_PAGES = 400
+WORK24_EMPLOYMENT = "민간 일자리(고용24)"
+
+# 사이트와 같은 보조 필터: 제목만으로 시니어 일자리와 무관하다고 확신할 수 있는 공고
+WORK24_UNRELATED = re.compile(
+    r"어린이집|유치원|보육교사|보육사|수영강사|생산직|생산팀|품질관리|자동화설비|토목|엔지니어|시공|"
+    r"건설산업안전|산업안전관리자|공장|폐수처리|기술영업|영업관리|현장관리자|설계")
+# 사이트의 6개 카테고리 중 하나에 들어야 사이트 목록에 오른다 (mapJobCategory)
+WORK24_SITE_CATEGORY = re.compile(
+    r"경비|보안|주차|지킴이|청소|미화|환경|조리|급식|주방|영양사|사무|행정|접수|안내|"
+    r"시설|아파트|건물|빌딩|관리사무소|주택관리|공동주택|공헌|봉사|돌봄|복지|요양|간병|보호사")
+# 고용24 공식 직종분류코드(jobsCd) 앞 3자리 → 직종. 사이트가 "사회공헌" 세부분류에 쓰는 매핑을
+# 실제 일 이름으로 옮겼다. 매핑에 없으면 제목 키워드로 분류한다.
+WORK24_JOBS_CD = {
+    "550": "요양·간병",
+    "231": "돌봄·복지",   # 사회복지사
+    "232": "돌봄·복지",   # 노인맞춤돌봄·생활지원
+    "304": "간호·치료",   # 간호사
+    "306": "간호·치료",   # 물리·작업치료사
+    "307": "간호·치료",   # 간호조무사·병동보조
+    "561": "청소·미화",   # 요양시설 위생관리
+}
+WAGE_UNITS = {"시급": "hour", "일급": "day", "주급": "week", "월급": "month", "연봉": "year"}
+
+
+def parse_work24_date(value):
+    """고용24 날짜는 "26-10-02"처럼 연도가 두 자리다. "채용시까지"는 마감일이 아니다(상시)."""
+    if not value or "채용시까지" in value:
+        return None
+    m = re.search(r"(\d{2,4})-(\d{2})-(\d{2})", value) or re.search(r"(\d{4})(\d{2})(\d{2})", value)
+    if not m:
+        return None
+    year = m[1] if len(m[1]) == 4 else "20" + m[1]
+    return f"{year}-{m[2]}-{m[3]}"
+
+
+def parse_work24_wage(sal, sal_type):
+    """"338만원", "10320원", "280만원 ~ 300만원" → (금액, 단위). 범위는 낮은 쪽.
+
+    단위(salTpNm)가 없으면 금액 크기로 추정한다: 5만 원 미만 시급, 30만 원 미만 일급,
+    1천만 원 미만 월급, 그 이상 연봉.
+    """
+    if not sal:
+        return None, None
+    m = re.search(r"([\d,]+(?:\.\d+)?)\s*(만)?\s*원", sal)
+    if not m:
+        return None, None
+    amount = float(m[1].replace(",", "")) * (10000 if m[2] else 1)
+    unit = next((u for k, u in WAGE_UNITS.items() if k in (sal_type or "")), None)
+    if unit == "week":
+        amount, unit = amount / 5, "day"
+    if unit is None:
+        unit = "hour" if amount < 50000 else "day" if amount < 300000 else "month" if amount < 10_000_000 else "year"
+    return amount, unit
+
+
+def _work24_items(text):
+    """응답 XML → (total, <wanted> 항목 목록). 형식이 다르면 SourceError."""
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError as e:
+        raise SourceError(f"고용24: XML이 아닌 응답: {text[:200]!r}") from e
+    items = [{c.tag: (c.text or "").strip() for c in w} for w in root.iter("wanted")]
+    total = root.findtext(".//total")
+    if total is None:
+        msg = root.findtext(".//message") or root.findtext(".//errMsg") or text[:200]
+        raise SourceError(f"고용24 오류 응답: {msg}")
+    return int(total or 0), items
+
+
+def work24_record(item):
+    title = item.get("title") or ""
+    if WORK24_UNRELATED.search(title) or not WORK24_SITE_CATEGORY.search(title):
+        return None
+    sido, sigungu = split_workplace(item.get("region"))
+    if sido not in SIDO_NAMES:
+        sido, sigungu = split_workplace(item.get("basicAddr"))
+        if sido not in SIDO_NAMES:
+            sido, sigungu = None, None
+    category = WORK24_JOBS_CD.get((item.get("jobsCd") or "")[:3]) or classify_category(title)
+    wage, unit = parse_work24_wage(item.get("sal"), item.get("salTpNm"))
+    return normalize({
+        "source_id": item.get("wantedAuthNo"),
+        "title": title,
+        "org_name": item.get("company"),
+        "sido": sido,
+        "sigungu": sigungu,
+        "category": category,
+        "employment_type": WORK24_EMPLOYMENT,
+        "wage_amount": wage,
+        "wage_unit": unit,
+        "posted_date": parse_work24_date(item.get("regDt")),
+        "deadline_date": parse_work24_date(item.get("closeDt")),
+        "raw": item,
+    })
+
+
+def from_work24(key, today, fetch_text=_get_text, workers=8):
+    """조건에 맞는 고용24 공고 전체 (마감일이 지난 공고 제외).
+
+    목록에 없는 공고를 마감으로 처리하므로, 받은 건수가 고용24가 알려준 전체 건수에 크게
+    못 미치거나 한 페이지라도 실패하면 전체를 실패로 본다.
+    """
+    def page_url(page):
+        return (f"{WORK24_URL}?authKey={quote(key, safe='')}&callTp=L&returnType=XML"
+                f"&startPage={page}&display={WORK24_PAGE_SIZE}&pfPreferential=8")
+
+    total, first = _work24_items(fetch_text(page_url(1)))
+    pages = min(-(-total // WORK24_PAGE_SIZE), WORK24_MAX_PAGES)
+    items = list(first)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for _, batch in pool.map(lambda p: _work24_items(fetch_text(page_url(p))), range(2, pages + 1)):
+            items += batch
+    if total and len(items) < min(total, pages * WORK24_PAGE_SIZE) * 0.95:
+        raise SourceError(f"고용24: 전체 {total}건 중 {len(items)}건만 받았습니다")
+
+    rows = {}
+    for item in items:
+        rec = work24_record(item)
+        if rec and (rec["deadline_date"] is None or rec["deadline_date"] >= today.isoformat()):
+            rows[rec["source_id"]] = rec
     return list(rows.values())
