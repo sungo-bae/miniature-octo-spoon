@@ -364,6 +364,9 @@ WORK24_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L
 WORK24_PAGE_SIZE = 100
 WORK24_MAX_PAGES = 800
 WORK24_EMPLOYMENT = "민간 일자리(고용24)"
+# 하루 수만 건을 한 번에 반영하므로 원본은 화면·분석에 쓰는 필드만 남긴다
+# (전체를 담으면 요청이 37MB가 되어 Supabase 게이트웨이의 100초 제한에 걸렸다)
+WORK24_RAW_FIELDS = ("wantedInfoUrl", "jobsCd", "sal", "salTpNm", "holidayTpNm", "minEdubg", "career")
 
 # 사이트와 같은 보조 필터: 제목만으로 시니어 일자리와 무관하다고 확신할 수 있는 공고
 WORK24_UNRELATED = re.compile(
@@ -456,7 +459,7 @@ def work24_record(item):
         "wage_unit": unit,
         "posted_date": parse_work24_date(item.get("regDt")),
         "deadline_date": parse_work24_date(item.get("closeDt")),
-        "raw": item,
+        "raw": {k: item[k] for k in WORK24_RAW_FIELDS if item.get(k)},
     })
 
 

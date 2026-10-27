@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 
 from pipeline import ingest
-from pipeline.sources import SourceError, from_work24, parse_work24_wage, work24_record
+from pipeline.sources import WORK24_RAW_FIELDS, SourceError, from_work24, parse_work24_wage, work24_record
 
 
 def wanted(i, title="아파트 경비원 모집", region="서울 강남구", jobs_cd="530101", sal="10320원",
@@ -24,6 +24,8 @@ def test_record_maps_fields_like_the_site():
     assert (r["wage_amount"], r["wage_unit"]) == (10320.0, "hour")
     assert (r["posted_date"], r["deadline_date"]) == ("2026-10-25", "2026-11-30")
     assert r["raw"]["holidayTpNm"] == "주5일근무"
+    # 원본은 쓰는 필드만 남겨 하루치 요청 크기를 줄인다
+    assert "title" not in r["raw"] and set(r["raw"]) <= set(WORK24_RAW_FIELDS)
 
 
 def test_record_uses_official_job_code_for_care_work():
