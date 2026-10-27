@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>실버잡 일자리 날씨</title>
+<meta name="description" content="우리 동네 어르신 일자리가 얼마나 있는지, 이번 주에는 얼마나 나올지 쉽게 알려드립니다.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;800&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f7f3ec;            /* 따뜻한 미색 바탕 */
+    --surface: #fffdf9;
+    --border: #e6dfd2;
+    --ink: #1c1b19;
+    --ink-2: #4a4740;
+    --ink-3: #6e6a61;
+    --brand: #1f3d63;           /* 짙은 남색: 머리띠·제목 */
+    --brand-ink: #ffffff;
+    --brand-soft: #e8eef6;
+    --sun: #c76b00;             /* 호박색: 정부 사업·강조 (글자용) */
+    --sun-bg: #fdf0dc;
+    --urgent-bg: #fde4e1;
+    --urgent-ink: #9b1c1c;
+    --series-1: #2a78d6;        /* 막대 (단일 계열) */
+    --series-1-soft: #a9c8ef;
+    --focus: #f2a541;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --page: #141414; --surface: #1d1c1a; --border: #36342f;
+      --ink: #f2efe9; --ink-2: #c9c4b8; --ink-3: #a19c90;
+      --brand: #233a57; --brand-ink: #f2efe9; --brand-soft: #22303f;
+      --sun: #f2b05e; --sun-bg: #3a2c16; --urgent-bg: #45201e; --urgent-ink: #ffb4ab;
+      --series-1: #3987e5; --series-1-soft: #2c4a70;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #141414; --surface: #1d1c1a; --border: #36342f;
+    --ink: #f2efe9; --ink-2: #c9c4b8; --ink-3: #a19c90;
+    --brand: #233a57; --brand-ink: #f2efe9; --brand-soft: #22303f;
+    --sun: #f2b05e; --sun-bg: #3a2c16; --urgent-bg: #45201e; --urgent-ink: #ffb4ab;
+    --series-1: #3987e5; --series-1-soft: #2c4a70;
+  }
+
+  * { box-sizing: border-box; }
+  html { font-size: 20px; }               /* 어르신용 기본 글자 크기 */
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font-family: "Noto Sans KR", system-ui, sans-serif; line-height: 1.6; word-break: keep-all;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+  h2 { font-size: 1.3rem; margin: 0 0 4px; color: var(--ink); }
+  p { margin: 0 0 8px; }
+  b { font-weight: 800; }
+  .muted { color: var(--ink-3); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  select:focus-visible, button:focus-visible, summary:focus-visible, .week:focus-visible {
+    outline: 3px solid var(--focus); outline-offset: 3px;
+  }
+
+  /* ── 머리띠 ── */
+  .hero { background: var(--brand); color: var(--brand-ink); padding: 20px 0 28px; }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 1.05rem; opacity: .95; }
+  .today { margin-top: 18px; font-size: .95rem; opacity: .85; }
+  .region { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 6px; }
+  .region label { font-size: 1.1rem; font-weight: 600; }
+  select {
+    font: inherit; font-size: 1.15rem; font-weight: 600; min-height: 56px; padding: 6px 44px 6px 16px;
+    border-radius: 14px; border: 0; background: var(--surface); color: var(--ink); cursor: pointer;
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: right 22px center, right 16px center; background-size: 6px 6px; background-repeat: no-repeat;
+  }
+  .headline { font-size: 1.55rem; font-weight: 600; line-height: 1.5; margin: 18px 0 10px; }
+  .headline .big { font-size: 2.3rem; font-weight: 800; color: #ffd27a; font-variant-numeric: tabular-nums; }
+  .weather { display: inline-flex; align-items: center; gap: 10px; background: rgba(255,255,255,.12);
+             border-radius: 999px; padding: 8px 18px 8px 12px; font-size: 1.05rem; }
+  .weather .icon { font-size: 1.6rem; line-height: 1; }
+
+  /* ── 요약 카드 ── */
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin: -18px 0 28px; }
+  .tile { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 18px 20px;
+          box-shadow: 0 2px 10px rgba(0,0,0,.05); }
+  .tile .label { color: var(--ink-2); font-weight: 600; }
+  .tile .value { font-size: 2.2rem; font-weight: 800; line-height: 1.25; font-variant-numeric: tabular-nums; }
+  .tile .value small { font-size: 1.05rem; font-weight: 600; margin-left: 2px; }
+  .tile .say { margin: 6px 0 0; color: var(--ink-2); }
+  .tile.gov { background: var(--sun-bg); border-color: transparent; }
+  .tile.gov .value { color: var(--sun); }
+  .delta { font-weight: 800; }
+
+  /* ── 섹션 ── */
+  section.block { margin-bottom: 36px; }
+  .sec-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .sec-head .num { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--brand); color: var(--brand-ink);
+                   display: grid; place-items: center; font-weight: 800; font-size: .95rem; transform: translateY(5px); }
+  .sec-head p { flex-basis: 100%; margin: 0 0 0 44px; color: var(--ink-2); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 20px; }
+
+  /* 공고 */
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .two h3 { font-size: 1.1rem; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  .jobs { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .job { display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: start;
+         border: 1px solid var(--border); border-radius: 14px; padding: 14px; background: var(--surface); }
+  .dday { min-width: 62px; text-align: center; border-radius: 12px; padding: 6px 4px; background: var(--brand-soft);
+          font-weight: 800; line-height: 1.2; }
+  .dday small { display: block; font-weight: 600; font-size: .7rem; color: var(--ink-2); }
+  .dday.urgent { background: var(--urgent-bg); color: var(--urgent-ink); }
+  .job .t { font-weight: 600; font-size: 1.02rem; line-height: 1.45; }
+  .job .meta { color: var(--ink-2); font-size: .88rem; margin-top: 4px; }
+  .tag { display: inline-block; font-size: .78rem; font-weight: 600; padding: 1px 10px; border-radius: 999px; margin: 0 6px 4px 0; }
+  .tag.gov { background: var(--sun-bg); color: var(--sun); }
+  .tag.pri { background: var(--brand-soft); color: var(--ink-2); }
+  .empty { color: var(--ink-3); padding: 12px 0; }
+
+  /* 직종 막대 (단일 계열) */
+  .cats { display: grid; gap: 12px; }
+  .cat { display: grid; grid-template-columns: 10em 1fr 3.4em; gap: 12px; align-items: center; }
+  .cat .name { display: flex; align-items: center; gap: 8px; }
+  .cat .name .ic { font-size: 1.2rem; width: 1.4em; text-align: center; }
+  .cat .track { height: 24px; }
+  .cat .fill { height: 100%; background: var(--series-1); border-radius: 0 4px 4px 0; min-width: 2px; }
+  .cat .n { text-align: right; font-weight: 800; font-variant-numeric: tabular-nums; }
+
+  /* 주간 막대 (단일 계열 + 예상 1칸) */
+  .weeks { display: flex; align-items: flex-end; gap: 4px; height: 220px; padding-top: 28px; border-bottom: 1px solid var(--border); }
+  .week { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; height: 100%; position: relative; }
+  .week .bar { background: var(--series-1); border-radius: 4px 4px 0 0; min-height: 2px; }
+  .week.forecast .bar { background: repeating-linear-gradient(135deg, var(--series-1-soft) 0 6px, transparent 6px 10px);
+                        border: 2px solid var(--series-1); border-bottom: 0; }
+  .week .v { position: absolute; left: 0; right: 0; text-align: center; font-size: .75rem; color: var(--ink-2);
+             font-variant-numeric: tabular-nums; }
+  .week:hover .bar, .week:focus .bar { filter: brightness(1.15); }
+  .axis { display: flex; gap: 4px; font-size: .7rem; color: var(--ink-3); margin-top: 4px; }
+  .axis span { flex: 1; min-width: 0; text-align: center; white-space: nowrap; }
+  .tip { position: fixed; pointer-events: none; background: var(--ink); color: var(--surface); padding: 6px 10px;
+         border-radius: 8px; font-size: .85rem; display: none; z-index: 10; }
+
+  details { margin-top: 12px; }
+  summary { cursor: pointer; font-weight: 600; min-height: 48px; display: flex; align-items: center; color: var(--brand); }
+  :root[data-theme="dark"] summary { color: var(--ink); }
+  @media (prefers-color-scheme: dark) { :root:where(:not([data-theme="light"])) summary { color: var(--ink); } }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  th, td { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+
+  .how p { color: var(--ink-2); }
+  .notice { background: var(--urgent-bg); color: var(--urgent-ink); border-radius: 14px; padding: 14px 16px; margin: 16px 0; }
+  footer { color: var(--ink-3); font-size: .85rem; padding: 8px 0 48px; }
+
+  @media (max-width: 720px) {
+    .two { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 560px) {
+    html { font-size: 18px; }
+    .headline { font-size: 1.3rem; }
+    .headline .big { font-size: 1.9rem; }
+    .headline br { display: none; }
+    .cat { grid-template-columns: 7.6em 1fr 2.8em; gap: 8px; }
+    .sec-head p { margin-left: 0; }
+    .axis span:not(:nth-child(3n+1)):not(:last-child),
+    .week:not(:nth-child(3n+1)):not(:last-child) .v { visibility: hidden; }
+    .week .v { font-size: .65rem; }
+  }
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <div class="brand"><span aria-hidden="true">☀️</span> 실버잡 일자리 날씨</div>
+    <div class="today" id="today"></div>
+    <div class="region">
+      <label for="sido">우리 지역</label>
+      <select id="sido"><option value="전국">전국</option></select>
+    </div>
+    <p class="headline" id="headline">일자리 소식을 불러오고 있어요…</p>
+    <div class="weather" id="weather" hidden><span class="icon" id="w-icon" aria-hidden="true"></span><span id="w-text"></span></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="error" class="notice" hidden></div>
+
+  <div class="tiles" aria-label="한눈에 보기">
+    <div class="tile">
+      <div class="label">지난주 새로 올라온 공고</div>
+      <div class="value" id="week-new">–</div>
+      <p class="say" id="week-say"></p>
+    </div>
+    <div class="tile">
+      <div class="label" id="fc-label">이번 주 예상</div>
+      <div class="value" id="fc-value">–</div>
+      <p class="say" id="fc-say"></p>
+    </div>
+    <div class="tile gov">
+      <div class="label">정부 노인일자리 사업 모집</div>
+      <div class="value" id="gov-people">–</div>
+      <p class="say" id="gov-say"></p>
+    </div>
+  </div>
+
+  <section class="block" aria-labelledby="h-jobs">
+    <div class="sec-head">
+      <span class="num" aria-hidden="true">1</span><h2 id="h-jobs">지금 지원할 수 있는 일자리</h2>
+      <p>마감이 가까운 공고부터 보여드려요. 관심 있는 공고는 기관에 먼저 연락해 보세요.</p>
+    </div>
+    <div class="two">
+      <div>
+        <h3><span aria-hidden="true">⏰</span> 서둘러 지원하세요</h3>
+        <ul class="jobs" id="soon"></ul>
+      </div>
+      <div>
+        <h3><span aria-hidden="true">🆕</span> 새로 올라왔어요</h3>
+        <ul class="jobs" id="newest"></ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" aria-labelledby="h-cats">
+    <div class="sec-head">
+      <span class="num" aria-hidden="true">2</span><h2 id="h-cats">어떤 일이 많을까요?</h2>
+      <p id="cats-say"></p>
+    </div>
+    <div class="card"><div class="cats" id="cats"></div></div>
+  </section>
+
+  <section class="block" aria-labelledby="h-trend">
+    <div class="sec-head">
+      <span class="num" aria-hidden="true">3</span><h2 id="h-trend">공고가 늘고 있을까요?</h2>
+      <p id="trend-say"></p>
+    </div>
+    <div class="card">
+      <div class="weeks" id="weeks" role="img"></div>
+      <div class="axis" id="axis" aria-hidden="true"></div>
+      <p class="muted" style="margin:10px 0 0">주마다 새로 올라온 민간 구인공고 수예요. 빗금 막대는 예상이에요.</p>
+      <details><summary>표로 보기</summary><table id="trend-table"></table></details>
+    </div>
+  </section>
+
+  <section class="block how" aria-labelledby="h-how">
+    <details class="card">
+      <summary id="h-how">이 숫자는 어떻게 계산했나요?</summary>
+      <p><b>모집 중인 일자리</b> — 한국노인인력개발원이 공개하는 두 자료를 매일 아침 모아서 셉니다.
+        ① 민간 기업의 노인 구인공고, ② 정부 노인일자리 사업의 참여자 모집.</p>
+      <p><b>새로 올라온 공고</b> — 민간 구인공고가 접수를 시작한 날을 기준으로 한 주(월~일)씩 셉니다.</p>
+      <p><b>일자리 날씨</b> — 지난주 새 공고 수를 최근 4주 평균과 비교해서, 20% 넘게 많으면 ‘맑음’, 20% 넘게 적으면 ‘흐림’, 그 사이면 ‘구름 조금’이에요.</p>
+      <p><b>예상</b> — 지난 1년 동안의 주별 공고 수로 몇 가지 계산 방법을 시험해 보고,
+        "지난주와 같을 것"이라고 단순히 가정하는 것보다 더 잘 맞았던 방법만 씁니다.
+        한 숫자가 아니라 <b>범위</b>로 보여드리는 이유는, 10번 중 8번 정도 그 범위 안에 들어왔기 때문이에요.
+        공고가 너무 적은 지역은 예상이 부정확해서 보여드리지 않아요.</p>
+      <p class="muted">공고 내용은 원래 기관의 공고가 기준입니다. 지원 전에 수행기관이나 회사에 꼭 확인하세요.</p>
+    </details>
+  </section>
+
+  <footer>자료: 한국노인인력개발원(공공데이터포털) · 매일 아침 6시쯤 새로 고쳐집니다.</footer>
+</main>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+const SUPABASE_URL = "https://idngidaxescxuyjzirob.supabase.co";
+// 공개(publishable) 키: 읽기 전용으로 공개된 표와 뷰만 볼 수 있다.
+const SUPABASE_KEY = "sb_publishable_hGMZ7IU3qZZc3jGzUP1ySQ_h1eRn7m0";
+const FORECAST_SOURCE = "kordi";   // 예측과 주간 추세는 민간 구인공고 기준 (pipeline/forecast.py 와 같게)
+const WEEKS = 12;
+const CAT_ICON = {
+  "청소·미화": "🧹", "경비·보안": "🛡️", "조리·급식": "🍚", "돌봄·복지": "🤝", "운전·배송": "🚚",
+  "시설관리·기술": "🔧", "생산·물류": "📦", "사무·전문": "🗂️", "판매·서비스": "🛍️", "기타": "📌",
+};
+const WEEKDAY = "일월화수목금토";
+
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => Math.round(n).toLocaleString("ko-KR");
+
+async function api(path, params = {}, all = false) {
+  const url = new URL(`${SUPABASE_URL}/rest/v1/${path}`);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Range: `${from}-${from + 999}` } });
+    if (!res.ok) throw new Error(`${path}: ${res.status}`);
+    const batch = await res.json();
+    rows.push(...batch);
+    if (!all || batch.length < 1000) return rows;
+  }
+}
+
+function mondayOf(d) {
+  const x = new Date(d + "T00:00:00");
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x.toISOString().slice(0, 10);
+}
+function addDays(d, n) {
+  const x = new Date(d + "T00:00:00"); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10);
+}
+const short = (d) => `${+d.slice(5, 7)}/${+d.slice(8, 10)}`;
+const regionFilter = (s) => (s === "전국" ? {} : { sido: `eq.${s}` });
+const where = (s) => (s === "전국" ? "전국에" : `${s}에는`);
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+function savedRegion() { try { return localStorage.getItem("silverjob.sido"); } catch { return null; } }
+function saveRegion(s) { try { localStorage.setItem("silverjob.sido", s); } catch {} }
+
+let latestDay = null;
+
+async function loadRegions() {
+  const runs = await api("ingest_runs", { select: "run_date", order: "run_date.desc", limit: 1 });
+  latestDay = runs[0]?.run_date;
+  if (latestDay) {
+    const d = new Date(latestDay + "T00:00:00");
+    $("today").textContent = `${d.getMonth() + 1}월 ${d.getDate()}일(${WEEKDAY[d.getDay()]}) 아침 소식`;
+  }
+  const flow = await api("v_daily_flow", { select: "sido,open_count", day: `eq.${latestDay}` }, true);
+  const totals = {};
+  flow.forEach((r) => (totals[r.sido] = (totals[r.sido] || 0) + r.open_count));
+  const sel = $("sido");
+  Object.entries(totals).filter(([s]) => s !== "지역 미상")
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([s]) => sel.add(new Option(s, s)));
+  const saved = savedRegion();
+  if (saved && totals[saved]) sel.value = saved;
+}
+
+async function fetchAll(sido) {
+  const reg = regionFilter(sido);
+  const since = addDays(mondayOf(latestDay), -7 * WEEKS);
+  const trendSel = { select: "source_id,posted_date", source: `eq.${FORECAST_SOURCE}`, posted_date: `gte.${since}`, ...reg };
+  const cols = "title,org_name,sido,sigungu,category,source,deadline_date,posted_date,apply:raw->>acptMthd";
+  const open = { select: cols, closed_date: "is.null", ...reg };
+  const [flow, gov, live, hist, fc, soon, newest] = await Promise.all([
+    api("v_daily_flow", { select: "category,open_count", day: `eq.${latestDay}`, ...reg }, true),
+    api("job_postings", { select: "openings:raw->>hpInvtCnt", source: "eq.kordi_jobbsn", closed_date: "is.null", ...reg }, true),
+    api("job_postings", trendSel, true),
+    api("job_postings_history", trendSel, true),
+    api("v_latest_forecast", { select: "week_start,expected,lower,upper", sido: `eq.${sido}`, order: "week_start.asc", limit: 1 }),
+    api("job_postings", { ...open, deadline_date: `gte.${latestDay}`, and: `(deadline_date.lte.${addDays(latestDay, 7)})`,
+                          order: "deadline_date.asc", limit: 5 }),
+    api("job_postings", { ...open, posted_date: `lte.${latestDay}`, order: "posted_date.desc", limit: 5 }),
+  ]);
+  return { flow, gov, live, hist, fc: fc[0], soon, newest };
+}
+
+function weekly({ live, hist }) {
+  const seen = new Set(live.map((r) => r.source_id));
+  const counts = {};
+  [...live, ...hist.filter((r) => !seen.has(r.source_id))].forEach((r) => {
+    const w = mondayOf(r.posted_date); counts[w] = (counts[w] || 0) + 1;
+  });
+  const thisWeek = mondayOf(latestDay);
+  const weeks = [];
+  for (let i = WEEKS; i >= 1; i--) { const w = addDays(thisWeek, -7 * i); weeks.push({ w, n: counts[w] || 0 }); }
+  return weeks;
+}
+
+function paintHeadline(sido, total, weeks) {
+  $("headline").innerHTML = `${escapeHtml(where(sido))} 지금 <span class="big">${fmt(total)}개</span>의 일자리가<br>어르신을 기다리고 있어요.`;
+  const last = weeks[weeks.length - 1].n;
+  const avg4 = weeks.slice(-5, -1).reduce((a, x) => a + x.n, 0) / 4;
+  const [icon, word, why] = last > avg4 * 1.2 ? ["☀️", "맑음", "평소보다 새 공고가 많았어요"]
+    : last < avg4 * 0.8 ? ["☁️", "흐림", "평소보다 새 공고가 적었어요"]
+    : ["⛅", "구름 조금", "새 공고가 평소와 비슷했어요"];
+  $("w-icon").textContent = icon;
+  $("w-text").innerHTML = `지난주 일자리 날씨 <b>${word}</b> · ${why}`;
+  $("weather").hidden = false;
+  return { last, avg4, word };
+}
+
+function paintTiles(weeks, fc, gov) {
+  const last = weeks[weeks.length - 1].n, prev = weeks[weeks.length - 2].n, diff = last - prev;
+  $("week-new").innerHTML = `${fmt(last)}<small>건</small>`;
+  $("week-say").innerHTML = diff === 0 ? "그 전 주와 같아요."
+    : `그 전 주보다 <span class="delta">${diff > 0 ? "▲" : "▼"} ${fmt(Math.abs(diff))}건</span> ${diff > 0 ? "늘었어요." : "줄었어요."}`;
+
+  // 지난주까지의 자료로 예측하므로, 첫 예측 주는 대개 이번 주다
+  const when = fc && fc.week_start <= latestDay ? "이번 주" : "다음 주";
+  $("fc-label").textContent = `${when} 예상`;
+  if (fc) {
+    $("fc-value").innerHTML = `${fmt(fc.lower)}~${fmt(fc.upper)}<small>건</small>`;
+    $("fc-say").textContent = `${short(fc.week_start)}~${short(addDays(fc.week_start, 6))}에 새 공고가 이 정도 나올 것 같아요.`;
+  } else {
+    $("fc-value").innerHTML = `<small>준비 중</small>`;
+    $("fc-say").textContent = "공고가 적은 지역이라 예상이 정확하지 않아 보여드리지 않아요.";
+  }
+
+  const people = gov.reduce((a, r) => a + (+r.openings || 0), 0);
+  $("gov-people").innerHTML = gov.length ? `${fmt(people)}<small>명</small>` : `<small>없음</small>`;
+  $("gov-say").textContent = gov.length
+    ? `시니어클럽 등 ${fmt(gov.length)}곳의 사업에서 참여자를 모집하고 있어요.`
+    : "지금 이 지역에서 모집 중인 정부 사업이 없어요.";
+  return when;
+}
+
+function paintCats(sido, flow) {
+  const byCat = {};
+  flow.forEach((r) => (byCat[r.category] = (byCat[r.category] || 0) + r.open_count));
+  const total = Object.values(byCat).reduce((a, b) => a + b, 0);
+  const cats = Object.entries(byCat).sort((a, b) => (a[0] === "기타") - (b[0] === "기타") || b[1] - a[1]);
+  const max = Math.max(1, ...cats.map((c) => c[1]));
+  $("cats").innerHTML = cats.map(([c, n]) => `
+    <div class="cat" title="${escapeHtml(c)}: ${fmt(n)}건">
+      <span class="name"><span class="ic" aria-hidden="true">${CAT_ICON[c] || "📌"}</span>${escapeHtml(c)}</span>
+      <div class="track"><div class="fill" style="width:${(n / max) * 100}%"></div></div>
+      <span class="n">${fmt(n)}</span>
+    </div>`).join("");
+  const top = cats.filter(([c]) => c !== "기타")[0];
+  $("cats-say").textContent = top && total
+    ? `${sido === "전국" ? "전국" : sido}에서는 ‘${top[0]}’ 일이 ${fmt(top[1])}건으로 가장 많아요. 열 건 중 ${Math.round(top[1] / total * 10)}건꼴이에요.`
+    : "";
+}
+
+function paintTrend(sido, weeks, fc, when, mood) {
+  $("trend-say").textContent =
+    `지난주 새 공고는 ${fmt(mood.last)}건으로, 최근 4주 평균(${fmt(mood.avg4)}건)보다 ` +
+    (mood.word === "맑음" ? "많았어요." : mood.word === "흐림" ? "적었어요." : "크게 다르지 않았어요.");
+  const bars = [...weeks.map((x) => ({ ...x, kind: "actual" })),
+                ...(fc ? [{ w: fc.week_start, n: fc.expected, lo: fc.lower, hi: fc.upper, kind: "forecast" }] : [])];
+  const max = Math.max(1, ...bars.map((b) => b.hi ?? b.n));
+  $("weeks").setAttribute("aria-label", `최근 ${WEEKS}주 새 공고 수` + (fc ? `와 ${when} 예상` : "") + ". 아래 ‘표로 보기’에서 숫자를 볼 수 있어요.");
+  $("weeks").innerHTML = bars.map((b) => {
+    const label = b.kind === "forecast"
+      ? `${short(b.w)} 주 예상: ${fmt(b.lo)}~${fmt(b.hi)}건`
+      : `${short(b.w)} 주: ${fmt(b.n)}건`;
+    const h = (b.n / max) * 100;
+    return `<div class="week ${b.kind === "forecast" ? "forecast" : ""}" tabindex="0" data-tip="${label}" aria-label="${label}">
+      <span class="v" style="bottom:calc(${h}% + 4px)">${b.kind === "forecast" ? "예상" : fmt(b.n)}</span>
+      <div class="bar" style="height:${h}%"></div></div>`;
+  }).join("");
+  $("axis").innerHTML = bars.map((b) => `<span>${short(b.w)}</span>`).join("");
+  $("trend-table").innerHTML = "<tr><th>주 (월요일 시작)</th><th>새 공고</th></tr>" +
+    bars.map((b) => `<tr><td>${b.w}${b.kind === "forecast" ? " (예상)" : ""}</td><td>${
+      b.kind === "forecast" ? `${fmt(b.lo)}~${fmt(b.hi)}` : fmt(b.n)}</td></tr>`).join("");
+}
+
+function jobItem(j) {
+  const place = [j.sido, j.sigungu].filter(Boolean).join(" ");
+  const gov = j.source === "kordi_jobbsn";
+  const left = j.deadline_date ? Math.round((new Date(j.deadline_date) - new Date(latestDay)) / 864e5) : null;
+  const dday = left === null ? `<div class="dday">상시<small>모집</small></div>`
+    : left <= 0 ? `<div class="dday urgent">오늘<small>마감</small></div>`
+    : left <= 7 ? `<div class="dday urgent">D-${left}<small>${short(j.deadline_date)} 마감</small></div>`
+    : `<div class="dday">${short(j.deadline_date)}<small>마감</small></div>`;
+  const how = j.apply ? ` · ${escapeHtml(j.apply)} 접수` : "";
+  return `<li class="job">${dday}<div>
+    <span class="tag ${gov ? "gov" : "pri"}">${gov ? "정부 노인일자리 사업" : "민간 일자리"}</span><span class="tag pri">${CAT_ICON[j.category] || "📌"} ${escapeHtml(j.category || "기타")}</span>
+    <div class="t">${escapeHtml(j.title)}</div>
+    <div class="meta">${escapeHtml(j.org_name || "")}${j.org_name ? " · " : ""}${escapeHtml(place)}${how}</div>
+  </div></li>`;
+}
+
+function paintJobs(soon, newest) {
+  $("soon").innerHTML = soon.length ? soon.map(jobItem).join("")
+    : `<li class="empty">일주일 안에 마감되는 공고가 없어요.</li>`;
+  $("newest").innerHTML = newest.length ? newest.map(jobItem).join("")
+    : `<li class="empty">새로 올라온 공고가 없어요.</li>`;
+}
+
+function showError(e) {
+  $("error").hidden = false;
+  $("error").textContent = "자료를 불러오지 못했어요. 잠시 뒤 새로고침해 주세요.";
+  console.error(e);
+}
+
+async function render() {
+  const sido = $("sido").value;
+  saveRegion(sido);
+  $("error").hidden = true;
+  try {
+    const d = await fetchAll(sido);
+    const weeks = weekly(d);
+    const total = d.flow.reduce((a, r) => a + r.open_count, 0);
+    const mood = paintHeadline(sido, total, weeks);
+    const when = paintTiles(weeks, d.fc, d.gov);
+    paintJobs(d.soon, d.newest);
+    paintCats(sido, d.flow);
+    paintTrend(sido, weeks, d.fc, when, mood);
+  } catch (e) { showError(e); }
+}
+
+// 막대 툴팁
+const tip = $("tip");
+$("weeks").addEventListener("pointermove", (e) => {
+  const w = e.target.closest(".week");
+  if (!w) { tip.style.display = "none"; return; }
+  tip.textContent = w.dataset.tip; tip.style.display = "block";
+  tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + "px";
+  tip.style.top = e.clientY - 40 + "px";
+});
+$("weeks").addEventListener("pointerleave", () => (tip.style.display = "none"));
+
+$("sido").addEventListener("change", render);
+loadRegions().then(render).catch(showError);
+</script>
+</body>
+</html>
