@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>끼워 넣기 예시</title>
+<style>
+  body { margin: 0; font-family: system-ui, sans-serif; background: #ffffff; color: #1c1b19; }
+  .site-header { background: #005bac; color: #fff; padding: 16px 24px; font-weight: 700; font-size: 20px; }
+  .site-main { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
+  .site-footer { background: #f0f0f0; padding: 24px; text-align: center; color: #555; }
+</style>
+</head>
+<body>
+  <!-- 기존 홈페이지 머리말이 있다고 가정한 예시 -->
+  <div class="site-header">실버잡 (기존 홈페이지 예시)</div>
+  <div class="site-main">
+    <h1>우리 동네 일자리</h1>
+    <p>아래 상자가 기존 홈페이지 안에 끼워 넣은 '일자리 날씨'입니다.</p>
+
+    <div class="silverjob-weather" data-accent="#005bac" data-bg="#ffffff"></div>
+    <script src="embed.js" defer></script>
+  </div>
+  <div class="site-footer">기존 홈페이지 바닥글</div>
+</body>
+</html>

@@ -47,6 +47,7 @@
   }
 
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html { font-size: 20px; }               /* 어르신용 기본 글자 크기 */
   body {
     margin: 0; background: var(--page); color: var(--ink);
@@ -152,6 +153,13 @@
   .how p { color: var(--ink-2); }
   .notice { background: var(--urgent-bg); color: var(--urgent-ink); border-radius: 14px; padding: 14px 16px; margin: 16px 0; }
   footer { color: var(--ink-3); font-size: .85rem; padding: 8px 0 48px; }
+
+  /* ── 끼워 넣기 모드 (?embed=1): 다른 홈페이지 안 iframe 으로 보일 때 ── */
+  .embed .brand { display: none; }
+  .embed .today { margin-top: 0; }
+  .embed .hero { padding-top: 16px; border-radius: 0 0 18px 18px; }
+  .embed footer { padding-bottom: 16px; }
+  .embed body { background: var(--page); }
 
   @media (max-width: 720px) {
     .two { grid-template-columns: 1fr; }
@@ -273,6 +281,17 @@ const CAT_ICON = {
 };
 const WEEKDAY = "일월화수목금토";
 
+// 끼워 넣기 설정: ?embed=1&region=서울특별시&lock=1&accent=%23005bac&bg=%23ffffff&theme=light
+const OPTS = new URLSearchParams(location.search);
+const EMBED = OPTS.get("embed") === "1";
+const FIXED_REGION = OPTS.get("region");
+const LOCK_REGION = OPTS.get("lock") === "1" && FIXED_REGION;
+if (EMBED) document.documentElement.classList.add("embed");
+if (["light", "dark"].includes(OPTS.get("theme"))) document.documentElement.dataset.theme = OPTS.get("theme");
+const HEX = /^#[0-9a-fA-F]{6}$/;
+if (HEX.test(OPTS.get("accent") || "")) document.documentElement.style.setProperty("--brand", OPTS.get("accent"));
+if (HEX.test(OPTS.get("bg") || "")) document.documentElement.style.setProperty("--page", OPTS.get("bg"));
+
 const $ = (id) => document.getElementById(id);
 const fmt = (n) => Math.round(n).toLocaleString("ko-KR");
 
@@ -323,8 +342,9 @@ async function loadRegions() {
   Object.entries(totals).filter(([s]) => s !== "지역 미상")
     .sort((a, b) => b[1] - a[1])
     .forEach(([s]) => sel.add(new Option(s, s)));
-  const saved = savedRegion();
-  if (saved && totals[saved]) sel.value = saved;
+  const wanted = FIXED_REGION || savedRegion();
+  if (wanted && totals[wanted]) sel.value = wanted;
+  if (LOCK_REGION) sel.closest(".region").hidden = true;
 }
 
 async function fetchAll(sido) {
@@ -468,7 +488,7 @@ function showError(e) {
 
 async function render() {
   const sido = $("sido").value;
-  saveRegion(sido);
+  if (!FIXED_REGION) saveRegion(sido);
   $("error").hidden = true;
   try {
     const d = await fetchAll(sido);
@@ -494,6 +514,14 @@ $("weeks").addEventListener("pointermove", (e) => {
 $("weeks").addEventListener("pointerleave", () => (tip.style.display = "none"));
 
 $("sido").addEventListener("change", render);
+// 끼워 넣은 쪽에 내용 높이를 알려 iframe 높이를 맞추게 한다 (docs/EMBED.md 의 스크립트가 받는다)
+if (EMBED && window.parent !== window) {
+  const report = () => window.parent.postMessage(
+    { type: "silverjob:height", height: Math.ceil(document.body.getBoundingClientRect().height) }, "*");
+  new ResizeObserver(report).observe(document.body);
+  addEventListener("load", report);
+}
+
 loadRegions().then(render).catch(showError);
 </script>
 </body>
