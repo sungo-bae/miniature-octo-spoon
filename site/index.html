@@ -379,7 +379,7 @@ function weekly({ live, hist }) {
 }
 
 function paintHeadline(sido, total, weeks) {
-  $("headline").innerHTML = `${escapeHtml(where(sido))} 지금 <span class="big">${fmt(total)}개</span>의 일자리가<br>어르신을 기다리고 있어요.`;
+  $("headline").innerHTML = `${escapeHtml(where(sido))} 지금 <span class="big">${fmt(total)}개</span>의 일자리가 <br>어르신을 기다리고 있어요.`;
   const last = weeks[weeks.length - 1].n;
   const avg4 = weeks.slice(-5, -1).reduce((a, x) => a + x.n, 0) / 4;
   const [icon, word, why] = last > avg4 * 1.2 ? ["☀️", "맑음", "평소보다 새 공고가 많았어요"]
