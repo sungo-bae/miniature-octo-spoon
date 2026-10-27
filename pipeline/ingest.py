@@ -1,6 +1,7 @@
 """매일 실행: 출처에서 공고를 받아 Supabase에 하루치 스냅샷으로 반영한다.
 
   DATA_GO_KR_SERVICE_KEY=... python -m pipeline.ingest --source kordi
+  DATA_GO_KR_SERVICE_KEY=... python -m pipeline.ingest --source kordi_jobbsn
   python -m pipeline.ingest --source manual --csv data/postings.csv --run-date 2026-10-26
 """
 import argparse
@@ -20,7 +21,7 @@ def dedupe(rows):
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--source", required=True,
-                    help="kordi = 한국노인인력개발원 노인 구인정보 API, 그 외 이름은 --csv 필요")
+                    help="kordi = 노인 구인정보, kordi_jobbsn = 자립형일자리 사업모집공고, 그 외 이름은 --csv 필요")
     ap.add_argument("--csv", help="정규화 필드명을 헤더로 쓰는 CSV 경로")
     ap.add_argument("--run-date", default=date.today().isoformat())
     args = ap.parse_args(argv)
@@ -31,6 +32,8 @@ def main(argv=None):
     elif args.source == "kordi":
         key = os.environ["DATA_GO_KR_SERVICE_KEY"]
         rows = sources.from_senuri(key, run_date)
+    elif args.source == "kordi_jobbsn":
+        rows = sources.from_jobbsn(os.environ["DATA_GO_KR_SERVICE_KEY"], run_date)
     else:
         ap.error(f"출처 {args.source!r}에는 --csv 가 필요합니다")
 

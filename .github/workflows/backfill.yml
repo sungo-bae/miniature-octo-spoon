@@ -5,6 +5,12 @@ name: backfill-history
 on:
   workflow_dispatch:
     inputs:
+      source:
+        description: "출처 (kordi = 노인 구인정보, kordi_jobbsn = 자립형일자리)"
+        required: true
+        default: "kordi"
+        type: choice
+        options: [kordi, kordi_jobbsn]
       since:
         description: "이 날짜 이후 시작된 공고 (YYYY-MM-DD)"
         required: true
@@ -24,6 +30,6 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: python -m pipeline.backfill --since "${{ inputs.since }}"
+      - run: python -m pipeline.backfill --source "${{ inputs.source }}" --since "${{ inputs.since }}"
       - name: Forecast with the new history
         run: python -m pipeline.forecast
