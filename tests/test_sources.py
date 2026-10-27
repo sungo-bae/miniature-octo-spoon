@@ -111,7 +111,10 @@ def test_classify_category():
     from pipeline.sources import classify_category
     assert classify_category("[반송동] 아파트 외곽 미화원 구인") == "청소·미화"
     assert classify_category("아파트형 공장 시설 경비 채용") == "경비·보안"
-    assert classify_category("대연동 요양보호사님 모십니다.") == "돌봄·복지"
+    assert classify_category("대연동 요양보호사님 모십니다.") == "요양·간병"
+    assert classify_category("노인복지관 사회복지사 채용") == "돌봄·복지"
+    assert classify_category("요양병원 간호조무사 모집") == "요양·간병"
+    assert classify_category("재활센터 물리치료사 모집") == "간호·치료"
     assert classify_category("구내식당 주방보조/세척원 모집") == "조리·급식"
     assert classify_category("(주) 대보 정직원 채용공고") == "기타"
 
@@ -193,6 +196,23 @@ def test_from_jobbsn_reads_whole_year_and_keeps_open_only():
     rows = from_jobbsn("k", date(2026, 10, 26), fetch_text=fetch)
     assert len(calls) == 2
     assert len(rows) == 101  # 1000건 중 100건 + 마지막 페이지 1건
+
+
+def test_from_jobbsn_fetches_pages_in_parallel_when_total_is_known():
+    from pipeline.sources import from_jobbsn
+    total = "<totalCount>2005</totalCount>"
+    pages = {1: senuri_xml([bsn(i) for i in range(1000)]).replace("<items>", total + "<items>"),
+             2: senuri_xml([bsn(1000 + i, status="완료") for i in range(1000)]),
+             3: senuri_xml([bsn(2000 + i) for i in range(5)])}
+    calls = []
+
+    def fetch(url):
+        calls.append(url)
+        return pages[int(url.split("pageNo=")[1].split("&")[0])]
+
+    rows = from_jobbsn("k", date(2026, 10, 26), fetch_text=fetch)
+    assert len(calls) == 3
+    assert len(rows) == 1005
 
 
 def test_from_jobbsn_includes_last_year_early_in_year():
