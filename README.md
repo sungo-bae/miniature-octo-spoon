@@ -55,6 +55,10 @@
 
 수동 적재는 `python -m pipeline.ingest --source manual --csv 파일.csv`로 할 수 있습니다. CSV 헤더는 정규화 필드명을 씁니다.
 
+## 공개 전
+
+[docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md) — **인증키 재발급(필수)**, Supabase 키 점검, 데이터 확인.
+
 ## 개발
 
 ```bash
