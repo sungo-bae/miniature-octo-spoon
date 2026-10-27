@@ -1,0 +1,28 @@
+name: daily-silverjob
+
+# 매일 06:07 KST: 공고 수집 → 하루치 스냅샷 반영 → 주간 예측 갱신
+on:
+  schedule:
+    - cron: "7 21 * * *"
+  workflow_dispatch:
+
+jobs:
+  ingest-and-forecast:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+      TZ: Asia/Seoul
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Ingest
+        run: python -m pipeline.ingest --source kordi
+      - name: Forecast
+        run: python -m pipeline.forecast
+

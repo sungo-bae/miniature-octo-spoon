@@ -1,0 +1,29 @@
+name: backfill-history
+
+# 1회성: 과거 공고로 주간 추세를 채운다 (Actions 탭 → backfill-history → Run workflow)
+# 상세조회로 지역을 보완하느라 1년치 기준 1시간 안팎 걸린다.
+on:
+  workflow_dispatch:
+    inputs:
+      since:
+        description: "이 날짜 이후 시작된 공고 (YYYY-MM-DD)"
+        required: true
+        default: "2025-10-27"
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: python -m pipeline.backfill --since "${{ inputs.since }}"
+      - name: Forecast with the new history
+        run: python -m pipeline.forecast
