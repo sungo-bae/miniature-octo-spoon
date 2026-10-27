@@ -87,7 +87,7 @@ Supabase 공개(publishable) 키로 공개 뷰만 읽습니다.
 3. GitHub 저장소 Secrets에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DATA_GO_KR_SERVICE_KEY`, `WORK24_API_KEY`(고용24 인증키, silverjob.kr Netlify 환경변수와 같은 값)를 등록합니다. `WORK24_API_KEY`가 없으면 고용24 수집은 건너뜁니다.
    - 인증키는 인코딩된 키와 원본 키 중 어느 것을 넣어도 됩니다.
    - 인증키 오류나 호출 한도 초과가 나면 그날 수집은 반영하지 않습니다. 반영하면 공고가 일괄 마감으로 기록되기 때문입니다.
-4. (선택) KOSIS 시도별 65세 이상 인구를 `region_population`에 적재합니다. 이 데이터가 있어야 기회 지수가 계산됩니다.
+4. 시도별 65세 이상 인구를 `region_population`에 적재합니다(`supabase/seed/region_population_2026_08.sql`, 행정안전부 주민등록 인구통계 2026년 8월 말, 16개 시도 합계 11,278,011명 = 전국 합계와 일치). 이 데이터로 기회 지수(고령 인구 1만 명당 공고 수)를 계산합니다. 새 수치는 `year`를 올려 넣으면 뷰가 최근 연도를 씁니다.
 
 수동 적재는 `python -m pipeline.ingest --source manual --csv 파일.csv`로 할 수 있습니다. CSV 헤더는 정규화 필드명을 씁니다.
 
