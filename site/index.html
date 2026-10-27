@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>실버잡 일자리 날씨</title>
+<meta name="description" content="우리 동네 어르신 일자리가 얼마나 있는지, 다음 주에는 얼마나 나올지 쉽게 알려드립니다.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;800&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --surface-0: #f4f3ef;
+    --surface-1: #fcfcfb;
+    --border: #d9d7cf;
+    --text-primary: #0b0b0b;
+    --text-secondary: #46453f;
+    --text-muted: #6b6a63;
+    --accent: #1f5fae;          /* 버튼·링크 */
+    --series-1: #2a78d6;        /* 막대 (단일 계열) */
+    --series-1-soft: #a9c8ef;   /* 예상 막대 */
+    --good: #0b7a3e;
+    --warn-bg: #fff4d6;
+    --warn-ink: #7a4b00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-0: #121211;
+      --surface-1: #1a1a19;
+      --border: #3a3936;
+      --text-primary: #f0efec;
+      --text-secondary: #c3c2b7;
+      --text-muted: #a3a29a;
+      --accent: #7fb2f0;
+      --series-1: #3987e5;
+      --series-1-soft: #2c4a70;
+      --good: #5cc98a;
+      --warn-bg: #3a2e12;
+      --warn-ink: #f2cf7a;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-0: #121211; --surface-1: #1a1a19; --border: #3a3936;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #a3a29a;
+    --accent: #7fb2f0; --series-1: #3987e5; --series-1-soft: #2c4a70;
+    --good: #5cc98a; --warn-bg: #3a2e12; --warn-ink: #f2cf7a;
+  }
+
+  * { box-sizing: border-box; }
+  html { font-size: 20px; }               /* 어르신용 기본 글자 크기 */
+  body {
+    margin: 0; background: var(--surface-0); color: var(--text-primary);
+    font-family: "Noto Sans KR", system-ui, sans-serif; line-height: 1.6;
+    word-break: keep-all;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.8rem; margin: 0 0 4px; }
+  h2 { font-size: 1.3rem; margin: 0 0 12px; }
+  p { margin: 0 0 8px; }
+  .lead { color: var(--text-secondary); margin-bottom: 20px; }
+  .card {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 16px;
+    padding: 20px; margin-bottom: 20px;
+  }
+
+  .region { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 20px; }
+  .region label { font-weight: 600; }
+  select {
+    font: inherit; font-size: 1.1rem; min-height: 56px; padding: 8px 16px; border-radius: 12px;
+    border: 2px solid var(--border); background: var(--surface-1); color: var(--text-primary);
+  }
+  select:focus-visible, a:focus-visible, button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .tile { background: var(--surface-1); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+  .tile .label { color: var(--text-secondary); font-weight: 600; }
+  .tile .value { font-size: 2.4rem; font-weight: 800; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .tile .value small { font-size: 1.1rem; font-weight: 600; }
+  .tile .say { margin-top: 8px; }
+
+  .say { font-size: 1.05rem; }
+  .muted { color: var(--text-muted); }
+
+  /* 주간 막대 (단일 계열 + 예상 1칸) */
+  .weeks { display: flex; align-items: flex-end; gap: 4px; height: 200px; padding-top: 28px;
+           border-bottom: 1px solid var(--border); position: relative; }
+  .week { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; height: 100%;
+          position: relative; cursor: default; }
+  .week .bar { background: var(--series-1); border-radius: 4px 4px 0 0; min-height: 2px; }
+  .week.forecast .bar {
+    background: repeating-linear-gradient(135deg, var(--series-1-soft) 0 6px, transparent 6px 10px);
+    border: 2px solid var(--series-1); border-bottom: 0;
+  }
+  .week .num { position: absolute; left: 0; right: 0; text-align: center; font-size: .75rem;
+               color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .week:hover .bar, .week:focus .bar { filter: brightness(1.15); }
+  .axis { display: flex; gap: 4px; font-size: .7rem; color: var(--text-muted); }
+  .axis span { flex: 1; min-width: 0; text-align: center; white-space: nowrap; }
+  .week { min-width: 0; }
+  .tip { position: fixed; pointer-events: none; background: var(--text-primary); color: var(--surface-1);
+         padding: 6px 10px; border-radius: 8px; font-size: .85rem; display: none; z-index: 10; }
+
+  /* 직종 막대 목록 */
+  .cats { display: grid; gap: 10px; }
+  .cat { display: grid; grid-template-columns: 8.5em 1fr 3.5em; gap: 12px; align-items: center; }
+  .cat .track { height: 22px; }
+  .cat .fill { height: 100%; background: var(--series-1); border-radius: 0 4px 4px 0; min-width: 2px; }
+  .cat .n { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* 공고 목록 */
+  .jobs { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+  .job { border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .job .t { font-weight: 600; font-size: 1.05rem; }
+  .job .meta { color: var(--text-secondary); font-size: .9rem; }
+  .badge { display: inline-block; font-size: .8rem; font-weight: 600; padding: 2px 10px; border-radius: 999px;
+           border: 1px solid var(--border); margin-right: 6px; }
+  .badge.urgent { background: var(--warn-bg); color: var(--warn-ink); border-color: transparent; }
+
+  details { margin-top: 8px; }
+  summary { cursor: pointer; font-weight: 600; min-height: 48px; display: flex; align-items: center; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  th, td { border-bottom: 1px solid var(--border); padding: 6px 8px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+
+  .notice { background: var(--warn-bg); color: var(--warn-ink); border-radius: 12px; padding: 14px 16px; }
+  footer { color: var(--text-muted); font-size: .85rem; margin-top: 32px; }
+
+  @media (max-width: 560px) {
+    html { font-size: 18px; }
+    .cat { grid-template-columns: 6.5em 1fr 3em; }
+    .axis span:not(:nth-child(3n+1)):not(:last-child),
+    .week:not(:nth-child(3n+1)):not(:last-child) .num { visibility: hidden; }
+    .week .num { font-size: .65rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>실버잡 일자리 날씨</h1>
+    <p class="lead">우리 동네 어르신 일자리가 지금 얼마나 있는지, 다음 주에는 얼마나 나올지 알려드려요.</p>
+  </header>
+
+  <div class="region">
+    <label for="sido">우리 지역</label>
+    <select id="sido"><option value="전국">전국</option></select>
+    <span class="muted" id="updated"></span>
+  </div>
+
+  <div id="error" class="notice" hidden></div>
+
+  <section aria-labelledby="h-weather">
+    <h2 id="h-weather" class="sr-only" style="position:absolute;left:-9999px">일자리 날씨</h2>
+    <div class="tiles">
+      <div class="tile">
+        <div class="label">지금 모집 중인 일자리</div>
+        <div class="value" id="open-total">–</div>
+        <p class="say" id="open-say"></p>
+      </div>
+      <div class="tile">
+        <div class="label">지난주 새로 올라온 공고</div>
+        <div class="value" id="week-new">–</div>
+        <p class="say" id="week-say"></p>
+      </div>
+      <div class="tile">
+        <div class="label" id="fc-label">다음 주 예상</div>
+        <div class="value" id="fc-value">–</div>
+        <p class="say" id="fc-say"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="h-trend" style="margin-top:20px">
+    <h2 id="h-trend">주마다 새로 올라온 공고</h2>
+    <p class="say" id="trend-say"></p>
+    <div class="weeks" id="weeks" role="img" aria-describedby="trend-say"></div>
+    <div class="axis" id="axis" aria-hidden="true"></div>
+    <p class="muted" style="margin-top:8px">빗금 막대는 예상이에요. 막대 위의 숫자를 보시거나, 아래 표로 보셔도 돼요.</p>
+    <details><summary>표로 보기</summary><table id="trend-table"></table></details>
+  </section>
+
+  <section class="card" aria-labelledby="h-cats">
+    <h2 id="h-cats">어떤 일이 많을까요?</h2>
+    <p class="say" id="cats-say"></p>
+    <div class="cats" id="cats"></div>
+  </section>
+
+  <section class="card" aria-labelledby="h-soon">
+    <h2 id="h-soon">곧 마감되는 공고</h2>
+    <p class="muted">마감일이 일주일 안에 다가온 공고예요. 관심 있으시면 서두르세요.</p>
+    <ul class="jobs" id="soon"></ul>
+  </section>
+
+  <section class="card" aria-labelledby="h-new">
+    <h2 id="h-new">새로 올라온 공고</h2>
+    <ul class="jobs" id="newest"></ul>
+  </section>
+
+  <section class="card" aria-labelledby="h-how">
+    <h2 id="h-how">이 숫자는 이렇게 계산했어요</h2>
+    <p><b>모집 중인 일자리</b>: 한국노인인력개발원이 공개하는 두 가지 자료를 매일 아침 모아서 셉니다.
+      ① 민간 기업의 노인 구인공고(노인 구인정보), ② 정부 노인일자리 사업의 참여자 모집(자립형일자리 사업모집공고).</p>
+    <p><b>새로 올라온 공고</b>: 민간 구인공고가 접수를 시작한 날짜를 기준으로 주(월~일)마다 셉니다.</p>
+    <p><b>다음 주 예상</b>: 지난 1년 동안의 주별 공고 수를 바탕으로 몇 가지 계산 방법을 시험해 보고,
+      "지난주와 같을 것"이라고 단순히 가정하는 것보다 더 잘 맞았던 방법만 씁니다.
+      한 숫자가 아니라 <b>범위</b>로 보여드리는 이유는, 10번 중 8번 정도 그 범위 안에 들어왔기 때문이에요.
+      공고가 너무 적은 지역은 예상이 부정확해서 보여드리지 않아요.</p>
+    <p class="muted">공고 내용은 원래 기관의 공고가 기준입니다. 지원 전에 수행기관이나 회사에 꼭 확인하세요.</p>
+  </section>
+
+  <footer>자료: 한국노인인력개발원(공공데이터포털). 매일 아침 6시쯤 새로 고쳐집니다.</footer>
+</main>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+const SUPABASE_URL = "https://idngidaxescxuyjzirob.supabase.co";
+// 공개(publishable) 키: 읽기 전용으로 공개된 표와 뷰만 볼 수 있다.
+const SUPABASE_KEY = "sb_publishable_hGMZ7IU3qZZc3jGzUP1ySQ_h1eRn7m0";
+const FORECAST_SOURCE = "kordi";   // 예측과 주간 추세는 민간 구인공고 기준 (pipeline/forecast.py 와 같게)
+const WEEKS = 12;
+
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => Math.round(n).toLocaleString("ko-KR");
+
+async function api(path, params = {}, all = false) {
+  const url = new URL(`${SUPABASE_URL}/rest/v1/${path}`);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.append(k, v));
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const res = await fetch(url, { headers: { apikey: SUPABASE_KEY, Range: `${from}-${from + 999}` } });
+    if (!res.ok) throw new Error(`${path}: ${res.status}`);
+    const batch = await res.json();
+    rows.push(...batch);
+    if (!all || batch.length < 1000) return rows;
+  }
+}
+
+function mondayOf(d) {
+  const x = new Date(d + "T00:00:00");
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7));
+  return x.toISOString().slice(0, 10);
+}
+function addDays(d, n) {
+  const x = new Date(d + "T00:00:00"); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10);
+}
+const short = (d) => `${+d.slice(5, 7)}/${+d.slice(8, 10)}`;
+const regionName = (s) => (s === "전국" ? "전국" : s);
+const regionFilter = (s) => (s === "전국" ? {} : { sido: `eq.${s}` });
+
+function savedRegion() { try { return localStorage.getItem("silverjob.sido"); } catch { return null; } }
+function saveRegion(s) { try { localStorage.setItem("silverjob.sido", s); } catch {} }
+
+let latestDay = null;
+
+async function loadRegions() {
+  const runs = await api("ingest_runs", { select: "run_date", order: "run_date.desc", limit: 1 });
+  latestDay = runs[0]?.run_date;
+  $("updated").textContent = latestDay ? `${short(latestDay)} 아침 기준` : "";
+  const flow = await api("v_daily_flow", { select: "sido,open_count", day: `eq.${latestDay}` }, true);
+  const totals = {};
+  flow.forEach((r) => (totals[r.sido] = (totals[r.sido] || 0) + r.open_count));
+  const sel = $("sido");
+  Object.entries(totals).filter(([s]) => s !== "지역 미상")
+    .sort((a, b) => b[1] - a[1])
+    .forEach(([s]) => sel.add(new Option(s, s)));
+  const saved = savedRegion();
+  if (saved && totals[saved]) sel.value = saved;
+}
+
+async function loadOpen(sido) {
+  const [flow, bsn] = await Promise.all([
+    api("v_daily_flow", { select: "category,open_count", day: `eq.${latestDay}`, ...regionFilter(sido) }, true),
+    api("job_postings", { select: "openings:raw->>hpInvtCnt", source: "eq.kordi_jobbsn",
+                          closed_date: "is.null", ...regionFilter(sido) }, true),
+  ]);
+  const total = flow.reduce((a, r) => a + r.open_count, 0);
+  const people = bsn.reduce((a, r) => a + (+r.openings || 0), 0);
+  $("open-total").innerHTML = `${fmt(total)}<small>건</small>`;
+  $("open-say").textContent = people
+    ? `이 중 정부 노인일자리 사업이 ${fmt(bsn.length)}건으로, 모두 ${fmt(people)}명을 모집하고 있어요.`
+    : `민간 구인공고 기준이에요.`;
+
+  const byCat = {};
+  flow.forEach((r) => (byCat[r.category] = (byCat[r.category] || 0) + r.open_count));
+  const cats = Object.entries(byCat).sort((a, b) => (a[0] === "기타") - (b[0] === "기타") || b[1] - a[1]);
+  const max = Math.max(1, ...cats.map((c) => c[1]));
+  $("cats").innerHTML = cats.map(([c, n]) => `
+    <div class="cat" title="${c}: ${fmt(n)}건">
+      <span>${c}</span>
+      <div class="track"><div class="fill" style="width:${(n / max) * 100}%"></div></div>
+      <span class="n">${fmt(n)}</span>
+    </div>`).join("");
+  const top = cats.filter(([c]) => c !== "기타")[0];
+  $("cats-say").textContent = top && total
+    ? `${regionName(sido)}에서는 ‘${top[0]}’ 일이 ${fmt(top[1])}건으로 가장 많아요 (전체의 ${Math.round(top[1] / total * 100)}%).`
+    : "";
+}
+
+async function loadTrend(sido) {
+  const sel = { select: "source_id,posted_date", source: `eq.${FORECAST_SOURCE}`, ...regionFilter(sido) };
+  const since = addDays(mondayOf(latestDay), -7 * WEEKS);
+  const [live, hist, fc] = await Promise.all([
+    api("job_postings", { ...sel, posted_date: `gte.${since}` }, true),
+    api("job_postings_history", { ...sel, posted_date: `gte.${since}` }, true),
+    api("v_latest_forecast", { select: "week_start,expected,lower,upper", sido: `eq.${sido}`,
+                               order: "week_start.asc", limit: 1 }),
+  ]);
+  const seen = new Set(live.map((r) => r.source_id));
+  const counts = {};
+  [...live, ...hist.filter((r) => !seen.has(r.source_id))].forEach((r) => {
+    const w = mondayOf(r.posted_date); counts[w] = (counts[w] || 0) + 1;
+  });
+  const thisWeek = mondayOf(latestDay);
+  const weeks = [];
+  for (let i = WEEKS; i >= 1; i--) { const w = addDays(thisWeek, -7 * i); weeks.push({ w, n: counts[w] || 0 }); }
+  const f = fc[0];
+
+  const last = weeks[weeks.length - 1].n, prev = weeks[weeks.length - 2].n;
+  const avg4 = weeks.slice(-5, -1).reduce((a, x) => a + x.n, 0) / 4;
+  $("week-new").innerHTML = `${fmt(last)}<small>건</small>`;
+  const diff = last - prev;
+  $("week-say").textContent = diff === 0 ? "그 전 주와 같아요."
+    : `그 전 주보다 ${fmt(Math.abs(diff))}건 ${diff > 0 ? "늘었어요." : "줄었어요."}`;
+
+  // 지난주까지의 자료로 예측하므로, 첫 예측 주는 대개 이번 주다
+  const fcWhen = f && f.week_start <= latestDay ? "이번 주" : "다음 주";
+  $("fc-label").textContent = `${fcWhen} 예상`;
+  if (f) {
+    $("fc-value").innerHTML = `${fmt(f.lower)}~${fmt(f.upper)}<small>건</small>`;
+    $("fc-say").textContent = `${fcWhen}(${short(f.week_start)}~${short(addDays(f.week_start, 6))})에 새 공고가 이 정도 나올 것으로 보여요.`;
+  } else {
+    $("fc-value").innerHTML = `<small>준비 중</small>`;
+    $("fc-say").textContent = "이 지역은 공고가 적어 예상이 정확하지 않아 보여드리지 않아요.";
+  }
+
+  const level = last > avg4 * 1.2 ? "평소보다 많은 편이에요" : last < avg4 * 0.8 ? "평소보다 적은 편이에요" : "평소와 비슷해요";
+  $("trend-say").textContent = `${regionName(sido)}의 지난주 새 공고는 ${fmt(last)}건으로, 최근 4주 평균(${fmt(avg4)}건)과 비교해 ${level}.`;
+
+  const bars = [...weeks.map((x) => ({ ...x, kind: "actual" })),
+                ...(f ? [{ w: f.week_start, n: f.expected, lo: f.lower, hi: f.upper, kind: "forecast" }] : [])];
+  const max = Math.max(1, ...bars.map((b) => b.hi ?? b.n));
+  $("weeks").setAttribute("aria-label", `최근 ${WEEKS}주 새 공고 수` + (f ? `와 ${fcWhen} 예상` : ""));
+  $("weeks").innerHTML = bars.map((b) => {
+    const label = b.kind === "forecast"
+      ? `${short(b.w)} 주 예상: ${fmt(b.lo)}~${fmt(b.hi)}건 (가장 가능성 높은 값 ${fmt(b.n)}건)`
+      : `${short(b.w)} 주: ${fmt(b.n)}건`;
+    const h = (b.n / max) * 100;
+    return `<div class="week ${b.kind === "forecast" ? "forecast" : ""}" tabindex="0" data-tip="${label}" aria-label="${label}">
+      <span class="num" style="bottom:calc(${h}% + 4px)">${b.kind === "forecast" ? "예상" : fmt(b.n)}</span>
+      <div class="bar" style="height:${h}%"></div></div>`;
+  }).join("");
+  $("axis").innerHTML = bars.map((b) => `<span>${short(b.w)}</span>`).join("");
+  $("trend-table").innerHTML = "<tr><th>주 (월요일)</th><th>새 공고</th></tr>" +
+    bars.map((b) => `<tr><td>${b.w}${b.kind === "forecast" ? " (예상)" : ""}</td><td>${
+      b.kind === "forecast" ? `${fmt(b.lo)}~${fmt(b.hi)}` : fmt(b.n)}</td></tr>`).join("");
+}
+
+function jobItem(j, urgent) {
+  const where = [j.sido, j.sigungu].filter(Boolean).join(" ");
+  const kind = j.source === "kordi_jobbsn" ? "노인일자리 사업" : "민간 구인";
+  const left = j.deadline_date ? Math.round((new Date(j.deadline_date) - new Date(latestDay)) / 864e5) : null;
+  const how = j.apply ? ` · 접수: ${j.apply}` : "";
+  return `<li class="job">
+    <div>${urgent && left !== null ? `<span class="badge urgent">${left <= 0 ? "오늘 마감" : `${left}일 남음`}</span>` : ""}<span class="badge">${kind}</span><span class="badge">${j.category || "기타"}</span></div>
+    <div class="t">${escapeHtml(j.title)}</div>
+    <div class="meta">${escapeHtml(j.org_name || "")} · ${escapeHtml(where)}${j.deadline_date ? ` · 마감 ${short(j.deadline_date)}` : ""}${escapeHtml(how)}</div>
+  </li>`;
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+async function loadJobs(sido) {
+  const cols = "title,org_name,sido,sigungu,category,source,deadline_date,posted_date,apply:raw->>acptMthd";
+  const base = { select: cols, closed_date: "is.null", ...regionFilter(sido) };
+  const [soon, newest] = await Promise.all([
+    api("job_postings", { ...base, deadline_date: `gte.${latestDay}`, and: `(deadline_date.lte.${addDays(latestDay, 7)})`,
+                          order: "deadline_date.asc", limit: 8 }),
+    api("job_postings", { ...base, posted_date: `lte.${latestDay}`, order: "posted_date.desc", limit: 8 }),
+  ]);
+  $("soon").innerHTML = soon.length ? soon.map((j) => jobItem(j, true)).join("")
+    : `<li class="muted">일주일 안에 마감되는 공고가 없어요.</li>`;
+  $("newest").innerHTML = newest.map((j) => jobItem(j, false)).join("");
+}
+
+async function render() {
+  const sido = $("sido").value;
+  saveRegion(sido);
+  $("error").hidden = true;
+  try {
+    await Promise.all([loadOpen(sido), loadTrend(sido), loadJobs(sido)]);
+  } catch (e) {
+    $("error").hidden = false;
+    $("error").textContent = "자료를 불러오지 못했어요. 잠시 뒤 새로고침해 주세요.";
+    console.error(e);
+  }
+}
+
+// 막대 툴팁
+const tip = $("tip");
+$("weeks").addEventListener("pointermove", (e) => {
+  const w = e.target.closest(".week");
+  if (!w) { tip.style.display = "none"; return; }
+  tip.textContent = w.dataset.tip; tip.style.display = "block";
+  tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + "px";
+  tip.style.top = e.clientY - 40 + "px";
+});
+$("weeks").addEventListener("pointerleave", () => (tip.style.display = "none"));
+
+$("sido").addEventListener("change", render);
+loadRegions().then(render).catch((e) => {
+  $("error").hidden = false;
+  $("error").textContent = "자료를 불러오지 못했어요. 잠시 뒤 새로고침해 주세요.";
+  console.error(e);
+});
+</script>
+</body>
+</html>
