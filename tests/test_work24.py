@@ -72,6 +72,13 @@ def test_from_work24_raises_on_error_response():
         from_work24("k", date(2026, 10, 27), fetch_text=lambda u: "<error><message>인증키 오류</message></error>")
 
 
+def test_error_message_names_the_reason():
+    # 고용24가 실제로 돌려준 응답: 개인회원 인증키로는 채용정보 API를 쓸 수 없다
+    text = "<?xml version='1.0' encoding='UTF-8'?>\n<GO24>\n  <error>개인회원은 사용할 수 없는 OPEN-API입니다.</error>\n</GO24>"
+    with pytest.raises(SourceError, match="개인회원은 사용할 수 없는"):
+        from_work24("k", date(2026, 10, 27), fetch_text=lambda u: text)
+
+
 class FakeDB:
     def __init__(self, previous):
         self.previous, self.rpc_called = previous, False

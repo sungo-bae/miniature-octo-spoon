@@ -414,8 +414,9 @@ def _work24_items(text):
     items = [{c.tag: (c.text or "").strip() for c in w} for w in root.iter("wanted")]
     total = root.findtext(".//total")
     if total is None:
-        msg = root.findtext(".//message") or root.findtext(".//errMsg") or text[:200]
-        raise SourceError(f"고용24 오류 응답: {msg}")
+        msg = (root.findtext(".//message") or root.findtext(".//errMsg")
+               or (root.text if root.tag == "error" else root.findtext(".//error")) or text[:200])
+        raise SourceError(f"고용24 오류 응답: {msg.strip()}")
     return int(total or 0), items
 
 
