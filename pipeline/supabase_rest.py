@@ -24,6 +24,10 @@ class SupabaseRest:
             raise requests.HTTPError(f"{r.status_code} {fn}: {r.text[:500]}", response=r)
         return r.json()
 
+    def delete(self, table, params):
+        r = self.session.delete(f"{self.url}/rest/v1/{table}", params=params, timeout=self.timeout)
+        r.raise_for_status()
+
     def select(self, table, params=None, page_size=1000):
         """테이블/뷰 전체를 페이지 단위로 읽는다."""
         rows, offset = [], 0

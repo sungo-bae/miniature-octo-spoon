@@ -43,6 +43,8 @@ Supabase 공개(publishable) 키로 공개 뷰만 읽습니다.
 5. **공고가 늘고 있을까요?:** 최근 12주 막대와 예상(빗금), 표 보기
 6. **이 숫자는 어떻게 계산했나요?:** 접어 둔 설명
 
+**현황 리포트 (`site/report.html`):** 지역을 고르면 모집 중 공고, 민간/정부 사업, 어르신 1만 명당 공고, 다음 주 예상, 직종별 공고 수와 대표 급여(`v_category_pay`), 어르신 1만 명당 공고로 본 지역 순위(`v_opportunity_index`), 주간 추세, 마감 속도(`v_time_to_close`, 마감 기록이 30건 이상 쌓이면 표시)를 보여줍니다. silverjob.kr의 `/report.html`에 `data-page="report"`로 끼워 넣습니다.
+
 기존 홈페이지에 끼워 넣는 방법은 [docs/EMBED.md](docs/EMBED.md)에 있습니다. 코드 두 줄로 넣고, 높이는 자동으로 맞춰지며, 대표색·바탕색·지역 고정을 설정할 수 있습니다.
 
 배포는 `pages.yml`이 맡습니다. 처음 한 번 Settings → Pages → Source를 **GitHub Actions**로 바꿔야 합니다.

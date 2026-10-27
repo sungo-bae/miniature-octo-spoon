@@ -114,3 +114,33 @@ def test_from_work24_refuses_more_than_it_can_fetch():
     # 한도를 넘는 공고는 날마다 마감으로 잘못 기록되므로 반영하지 않는다
     with pytest.raises(SourceError, match="수집 한도"):
         from_work24("k", date(2026, 10, 27), fetch_text=lambda u: "<wantedRoot><total>99999</total></wantedRoot>")
+
+
+def test_kordi_ingest_drops_postings_now_counted_in_work24(monkeypatch):
+    class DB(FakeDB):
+        deleted, sent = [], None
+
+        def select(self, table, params=None):
+            if table == "job_postings" and params["source"] == "eq.work24":
+                return [{"source_id": "K1"}, {"source_id": "K2"}]
+            if table == "job_postings" and params["source"] == "eq.kordi":
+                return [{"source_id": "K1"}, {"source_id": "K9"}]
+            return super().select(table, params)
+
+        def delete(self, table, params):
+            self.deleted.append(params)
+
+        def rpc(self, fn, **kw):
+            DB.sent = [r["source_id"] for r in kw["p_rows"]]
+            return super().rpc(fn, **kw)
+
+    db = DB(None)
+    monkeypatch.setattr(ingest, "SupabaseRest", lambda: db)
+    monkeypatch.setenv("DATA_GO_KR_SERVICE_KEY", "k")
+    monkeypatch.setattr(ingest.sources, "from_senuri", lambda key, d: [
+        {"source_id": s, "title": "경비원", "sido": "서울특별시"} for s in ("K1", "K2", "K3")])
+    monkeypatch.setattr(ingest.sources, "fill_missing_regions", lambda key, rows: 0)
+    ingest.main(["--source", "kordi", "--run-date", "2026-10-28"])
+    assert DB.sent == ["K3"]
+    # 이미 들어와 있던 노인 구인정보 사본 중 고용24에도 있는 것만 지운다
+    assert db.deleted == [{"source": "eq.kordi", "source_id": "in.(K1)"}]

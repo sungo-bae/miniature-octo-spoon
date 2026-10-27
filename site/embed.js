@@ -8,6 +8,7 @@
  * data-accent  머리띠 색 (#RRGGBB) — 홈페이지 대표색에 맞출 때
  * data-bg      바탕색 (#RRGGBB) — 홈페이지 바탕이 흰색이면 "#ffffff"
  * data-theme   "light" 또는 "dark" (생략하면 방문자 기기 설정을 따름)
+ * data-page    "report" 이면 일자리 현황 리포트 (생략하면 일자리 날씨)
  */
 (function () {
   var script = document.currentScript;
@@ -19,8 +20,9 @@
     var q = new URLSearchParams({ embed: "1" });
     ["region", "lock", "accent", "bg", "theme"].forEach(function (k) { if (el.dataset[k]) q.set(k, el.dataset[k]); });
     var frame = document.createElement("iframe");
-    frame.src = base + "index.html?" + q.toString();
-    frame.title = "실버잡 일자리 날씨";
+    var report = el.dataset.page === "report";
+    frame.src = base + (report ? "report.html?" : "index.html?") + q.toString();
+    frame.title = report ? "실버잡 일자리 현황 리포트" : "실버잡 일자리 날씨";
     frame.loading = "lazy";
     frame.style.cssText = "width:100%;border:0;display:block;min-height:600px;";
     el.appendChild(frame);

@@ -62,6 +62,15 @@ def main(argv=None):
         in_work24 = {r["source_id"] for r in db.select("job_postings", {
             "select": "source_id", "source": "eq.work24", "closed_date": "is.null"})}
         rows = [r for r in rows if r["source_id"] not in in_work24]
+        # 고용24보다 먼저 들어와 있던 같은 공고는 지운다. 남겨 두면 다음 날 노인 구인정보에서
+        # "마감"으로 잘못 기록된다 (같은 공고는 고용24 쪽에서 계속 센다).
+        dup = sorted(in_work24 & {r["source_id"] for r in db.select("job_postings", {
+            "select": "source_id", "source": "eq.kordi", "closed_date": "is.null"})})
+        for i in range(0, len(dup), 100):
+            db.delete("job_postings", {"source": "eq.kordi",
+                                       "source_id": f"in.({','.join(dup[i:i + 100])})"})
+        if dup:
+            print(f"고용24와 겹치는 노인 구인정보 공고 정리: {len(dup)}건")
 
         # 상세조회는 느려서(건당 수 초) 지역을 아직 모르는 새 공고만 조회한다.
         # 이미 지역이 채워진 공고는 DB 함수가 기존 값을 유지한다.
