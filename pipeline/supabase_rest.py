@@ -6,7 +6,8 @@ import requests
 
 class SupabaseRest:
     def __init__(self, url=None, key=None, timeout=60):
-        self.url = (url or os.environ["SUPABASE_URL"]).rstrip("/")
+        # 대시보드의 Data API 화면은 ".../rest/v1/" 까지 보여주므로 붙여 넣어도 동작하게 한다
+        self.url = (url or os.environ["SUPABASE_URL"]).rstrip("/").removesuffix("/rest/v1")
         key = key or os.environ["SUPABASE_SERVICE_ROLE_KEY"]
         self.timeout = timeout
         self.session = requests.Session()
