@@ -10,6 +10,17 @@
 홈페이지(anon 키, 읽기 전용) ◀── v_daily_flow · v_weekly_trend · v_opportunity_index · v_time_to_close · v_condition_mix · v_latest_forecast
 ```
 
+## 수집 출처
+
+| `source` | API | 내용 | 수집 방식 |
+|---|---|---|---|
+| `kordi` | 한국노인인력개발원 노인 구인정보 (`SenuriService`) | 워크넷 등 민간 노인 구인공고 | 최신순 목록에서 접수 중인 공고만, 빈 지역은 상세조회로 보완 |
+| `kordi_jobbsn` | 한국노인인력개발원 자립형일자리 사업모집공고 (`JobBsnInfoService`) | 정부 노인일자리 사업(시장형·인턴십 등) 참여자 모집 | 해당 연도 목록 전체(1,000건씩)에서 `모집중`만 |
+
+- 자립형일자리는 시도·시군구가 항상 들어 있고, 모집인원(`raw.hpInvtCnt`)도 함께 보존합니다.
+- 연말에 다음 해 사업 참여자를 대량으로 미리 모집하는 등 민간 구인과 흐름이 달라서, 주간 예측은 지금은 `kordi`만 대상으로 합니다(`FORECAST_SOURCES`).
+- 두 API는 같은 공공데이터포털 인증키를 씁니다.
+
 ## 홈페이지에서 쓰는 뷰
 
 | 뷰 | 보여주는 것 | 화면 문구 예시 |
@@ -42,12 +53,12 @@
 ## 설정
 
 1. Supabase에 `supabase/migrations/20261026000000_silverjob_analytics.sql`을 적용합니다.
-2. 공공데이터포털에서 [한국노인인력개발원 노인 구인정보](https://www.data.go.kr/data/15015153/openapi.do) API를 활용신청하고 인증키를 받습니다.
+2. 공공데이터포털에서 [한국노인인력개발원 노인 구인정보](https://www.data.go.kr/data/15015153/openapi.do)와 **한국노인인력개발원_자립형일자리 사업모집공고** API를 활용신청하고 인증키를 받습니다.
    - `from_senuri`가 `SenuriService/getJobList`(XML, 시작접수일 최신순)에서 접수 중인 공고 전체를 받습니다(하루 약 300건, 7페이지 안팎).
    - **직종:** API 직종 필드(`jobclsNm`)는 대부분 비어 있어서 제목 키워드로 분류합니다. 청소·미화, 경비·보안, 조리·급식, 돌봄·복지 등 10개 직종으로 나눕니다(`CATEGORY_KEYWORDS`).
    - **지역:** 근무지(`workPlcNm`)가 비어 있는 공고는 상세조회(`getJobInfo`)의 사업장 주소로 보완합니다. 실측으로 지역 미상이 55%에서 4%로 줄었습니다. 상세조회는 건당 수 초가 걸려서 새 공고만 조회합니다.
    - 광주·전남은 API 표기에 맞춰 `전남광주` 하나로 묶습니다.
-   - 처음 한 번 `python -m pipeline.backfill --since 2024-10-01`을 실행하면 과거 공고로 주간 추세를 채워, 첫날부터 예측을 쓸 수 있습니다.
+   - 처음 한 번 `python -m pipeline.backfill --since 2024-10-01`을 실행하면 과거 공고로 주간 추세를 채워, 첫날부터 예측을 쓸 수 있습니다. 자립형일자리는 `--source kordi_jobbsn`을 붙입니다. Actions의 **backfill-history**에서도 실행할 수 있습니다.
 3. GitHub 저장소 Secrets에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DATA_GO_KR_SERVICE_KEY`를 등록합니다.
    - 인증키는 인코딩된 키와 원본 키 중 어느 것을 넣어도 됩니다.
    - 인증키 오류나 호출 한도 초과가 나면 그날 수집은 반영하지 않습니다. 반영하면 공고가 일괄 마감으로 기록되기 때문입니다.

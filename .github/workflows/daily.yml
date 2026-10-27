@@ -21,8 +21,12 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - name: Ingest
+      - name: Ingest (노인 구인정보)
         run: python -m pipeline.ingest --source kordi
+      - name: Ingest (자립형일자리 사업모집)
+        if: ${{ !cancelled() }}   # 앞 출처가 실패해도 이 출처는 수집한다
+        run: python -m pipeline.ingest --source kordi_jobbsn
       - name: Forecast
+        if: ${{ !cancelled() }}
         run: python -m pipeline.forecast
 

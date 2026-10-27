@@ -23,6 +23,9 @@ BACKTEST_ORIGINS = 12
 MIN_WEEKS_TO_PUBLISH = 16
 MIN_WEEKLY_VOLUME = 3   # 최근 8주 평균이 이보다 적으면 "0~2건" 같은 예측이라 공개하지 않는다
 UNKNOWN_REGION = "지역 미상"
+# 예측 대상 출처. 자립형일자리 사업모집(kordi_jobbsn)은 연말 대량 모집처럼 민간 구인과 흐름이
+# 달라 합치면 추세가 왜곡된다. 1년 이상 이력이 쌓이면 따로 예측한다.
+FORECAST_SOURCES = ("kordi",)
 SEASON = 52
 
 
@@ -184,9 +187,10 @@ def main(argv=None):
 
     from pipeline.supabase_rest import SupabaseRest
     db = SupabaseRest()
-    postings = db.select("job_postings", {"select": "source,source_id,sido,posted_date,first_seen_date"})
+    only = {"source": f"in.({','.join(FORECAST_SOURCES)})"}
+    postings = db.select("job_postings", {"select": "source,source_id,sido,posted_date,first_seen_date", **only})
     seen = {(p["source"], p["source_id"]) for p in postings}
-    history = db.select("job_postings_history", {"select": "source,source_id,sido,posted_date"})
+    history = db.select("job_postings_history", {"select": "source,source_id,sido,posted_date", **only})
     postings += [dict(h, first_seen_date=h["posted_date"]) for h in history
                  if (h["source"], h["source_id"]) not in seen]
     rows = build_forecasts(postings, today)

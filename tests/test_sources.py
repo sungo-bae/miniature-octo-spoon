@@ -157,3 +157,71 @@ def test_from_senuri_history_stops_before_since():
     rows = from_senuri_history("k", date(2025, 6, 1),
                                fetch_text=lambda u: pages[int(u.split("pageNo=")[1].split("&")[0])])
     assert len(rows) == 100
+
+
+# ───────────── 자립형일자리 사업모집공고 (XML) ─────────────
+
+def bsn(i, status="모집중", place="씨트론 과자점", sido="전라북도", year="2026", start="20261020"):
+    return {"projNo": f"{year}-{i:06d}", "projYear": year, "trnStatNm": status, "workPlace": place,
+            "orgName": "OO시니어클럽", "dstrCd1Nm": sido, "dstrCd2Nm": "전주시", "hpInvtCnt": "3",
+            "hpNotiSdate": start, "hpNotiEdate": "20261231", "intCnt": "수행기관문의"}
+
+
+def test_jobbsn_record_fields():
+    from pipeline.sources import jobbsn_record
+    r = jobbsn_record(bsn(1))
+    assert (r["source_id"], r["title"], r["sido"], r["sigungu"]) == ("2026-000001", "씨트론 과자점 참여자 모집",
+                                                                     "전북특별자치도", "전주시")
+    assert (r["posted_date"], r["deadline_date"], r["employment_type"]) == ("2026-10-20", "2026-12-31", "노인일자리 사업")
+    assert r["raw"]["hpInvtCnt"] == "3"
+    # 사업장이 "수행기관문의"면 수행기관 이름으로 제목을 만든다
+    assert jobbsn_record(bsn(2, place="수행기관문의"))["title"] == "OO시니어클럽 참여자 모집"
+    assert jobbsn_record(bsn(3, sido="전남광주통합(광주)"))["sido"] == "전남광주"
+
+
+def test_from_jobbsn_reads_whole_year_and_keeps_open_only():
+    from pipeline.sources import from_jobbsn
+    pages = {1: senuri_xml([bsn(i, status="모집중" if i % 10 == 0 else "완료") for i in range(1000)]),
+             2: senuri_xml([bsn(1000 + i, status="모집중" if i % 10 == 0 else "완료") for i in range(5)])}
+    calls = []
+
+    def fetch(url):
+        calls.append(url)
+        assert "projYear=2026" in url and "numOfRows=1000" in url
+        return pages[int(url.split("pageNo=")[1].split("&")[0])]
+
+    rows = from_jobbsn("k", date(2026, 10, 26), fetch_text=fetch)
+    assert len(calls) == 2
+    assert len(rows) == 101  # 1000건 중 100건 + 마지막 페이지 1건
+
+
+def test_from_jobbsn_includes_last_year_early_in_year():
+    from pipeline.sources import from_jobbsn
+    years = []
+
+    def fetch(url):
+        years.append(url.split("projYear=")[1])
+        return senuri_xml([bsn(1, year=years[-1])])
+
+    from_jobbsn("k", date(2027, 2, 1), fetch_text=fetch)
+    assert years == ["2026", "2027"]
+
+
+def test_from_jobbsn_fails_whole_run_on_page_error():
+    from pipeline.sources import from_jobbsn
+    pages = iter([senuri_xml([bsn(i) for i in range(1000)]), "<html>502 Bad Gateway</html>"])
+    with pytest.raises(SourceError):
+        from_jobbsn("k", date(2026, 10, 26), fetch_text=lambda u: next(pages))
+
+
+def test_from_jobbsn_history_filters_by_start_date():
+    from pipeline.sources import from_jobbsn_history
+    items = [bsn(1, start="20250301", year="2025"), bsn(2, start="20251201", year="2025", status="완료"),
+             bsn(3, start="20261020"), bsn(4, start="20261220")]  # 마지막은 미래 모집 → 제외
+
+    def fetch(url):
+        year = url.split("projYear=")[1]
+        return senuri_xml([i for i in items if i["projYear"] == year])
+
+    rows = from_jobbsn_history("k", date(2025, 6, 1), date(2026, 10, 27), fetch_text=fetch)
+    assert sorted(r["source_id"] for r in rows) == ["2025-000002", "2026-000003"]

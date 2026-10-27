@@ -271,3 +271,70 @@ def fill_missing_regions(key, rows, fetch_text=_get_text, limit=500, max_failure
             if failures >= max_failures:
                 break
     return filled
+
+
+# ───────────── 한국노인인력개발원 자립형일자리 사업모집공고 (노인일자리 업무시스템) ─────────────
+# 정부 노인일자리 사업(시장형·인턴십 등)의 참여자 모집. XML 응답, 연도(projYear)별 전체 목록.
+# 모집중 공고가 모든 페이지에 흩어져 있어 해당 연도 목록을 끝까지 받은 뒤 고른다.
+
+JOBBSN_URL = "https://apis.data.go.kr/B552474/JobBsnInfoService/getJobBsnRecruitList"
+JOBBSN_PAGE_SIZE = 1000
+JOBBSN_EMPLOYMENT = "노인일자리 사업"
+PLACEHOLDER = "수행기관문의"
+
+
+def jobbsn_record(item):
+    place = item.get("workPlace")
+    org = item.get("orgName")
+    place = None if place == PLACEHOLDER else place
+    return normalize({
+        "source_id": item.get("projNo"),
+        "title": f"{place or org} 참여자 모집" if (place or org) else None,
+        "org_name": org,
+        "sido": normalize_sido(item.get("dstrCd1Nm")),
+        "sigungu": item.get("dstrCd2Nm") or None,
+        "category": classify_category(f"{place or ''} {org or ''}"),
+        "employment_type": JOBBSN_EMPLOYMENT,
+        "posted_date": item.get("hpNotiSdate"),
+        "deadline_date": item.get("hpNotiEdate"),
+        "raw": item,  # 모집인원(hpInvtCnt) 등 원본 필드 보존
+    })
+
+
+def _jobbsn_year(key, year, fetch_text, max_pages=200):
+    items = []
+    for page in range(1, max_pages + 1):
+        url = (f"{JOBBSN_URL}?serviceKey={_encode_key(key)}&pageNo={page}"
+               f"&numOfRows={JOBBSN_PAGE_SIZE}&projYear={year}")
+        batch = parse_senuri_xml(fetch_text(url))
+        items += batch
+        if len(batch) < JOBBSN_PAGE_SIZE:
+            return items
+    raise SourceError(f"자립형일자리 {year}년 목록이 {max_pages}페이지를 넘었습니다")
+
+
+def from_jobbsn(key, today, fetch_text=_get_text):
+    """모집중인 자립형일자리 공고 전체. 연초에는 지난해 사업의 모집도 남아 있어 함께 본다.
+
+    목록에 없는 공고를 마감으로 처리하므로, 한 페이지라도 실패하면 전체를 실패로 본다.
+    """
+    years = [today.year - 1, today.year] if today.month <= 3 else [today.year]
+    rows = {}
+    for year in years:
+        for item in _jobbsn_year(key, year, fetch_text):
+            if item.get("trnStatNm") == "모집중":
+                rec = jobbsn_record(item)
+                if rec:
+                    rows[rec["source_id"]] = rec
+    return list(rows.values())
+
+
+def from_jobbsn_history(key, since, today, fetch_text=_get_text):
+    """since 이후 모집을 시작한 공고 전체(완료 포함). 과거 추세 보충용."""
+    rows = {}
+    for year in range(since.year, today.year + 1):
+        for item in _jobbsn_year(key, year, fetch_text):
+            rec = jobbsn_record(item)
+            if rec and rec["posted_date"] and since.isoformat() <= rec["posted_date"] <= today.isoformat():
+                rows[rec["source_id"]] = rec
+    return list(rows.values())
