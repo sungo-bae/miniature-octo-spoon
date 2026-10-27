@@ -304,15 +304,27 @@ def jobbsn_record(item):
     })
 
 
-def _jobbsn_year(key, year, fetch_text, max_pages=200):
-    items = []
-    for page in range(1, max_pages + 1):
-        url = (f"{JOBBSN_URL}?serviceKey={_encode_key(key)}&pageNo={page}"
-               f"&numOfRows={JOBBSN_PAGE_SIZE}&projYear={year}")
-        batch = parse_senuri_xml(fetch_text(url))
-        items += batch
-        if len(batch) < JOBBSN_PAGE_SIZE:
+def _jobbsn_year(key, year, fetch_text, max_pages=200, workers=4):
+    def page_text(page):
+        return fetch_text(f"{JOBBSN_URL}?serviceKey={_encode_key(key)}&pageNo={page}"
+                          f"&numOfRows={JOBBSN_PAGE_SIZE}&projYear={year}")
+
+    first = page_text(1)
+    items = parse_senuri_xml(first)
+    total = re.search(r"<totalCount>\s*(\d+)\s*</totalCount>", first)
+    if total:
+        # 한 해 목록이 수만 건이라 페이지를 차례로 받으면 몇 분이 걸린다
+        pages = -(-int(total.group(1)) // JOBBSN_PAGE_SIZE)
+        if pages > max_pages:
+            raise SourceError(f"자립형일자리 {year}년 목록이 {max_pages}페이지를 넘었습니다")
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for text in pool.map(page_text, range(2, pages + 1)):
+                items += parse_senuri_xml(text)
+        return items
+    for page in range(2, max_pages + 1):
+        if len(items) < (page - 1) * JOBBSN_PAGE_SIZE:
             return items
+        items += parse_senuri_xml(page_text(page))
     raise SourceError(f"자립형일자리 {year}년 목록이 {max_pages}페이지를 넘었습니다")
 
 
@@ -350,7 +362,7 @@ def from_jobbsn_history(key, since, today, fetch_text=_get_text):
 
 WORK24_URL = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L01.do"
 WORK24_PAGE_SIZE = 100
-WORK24_MAX_PAGES = 400
+WORK24_MAX_PAGES = 800
 WORK24_EMPLOYMENT = "민간 일자리(고용24)"
 
 # 사이트와 같은 보조 필터: 제목만으로 시니어 일자리와 무관하다고 확신할 수 있는 공고
@@ -448,7 +460,7 @@ def work24_record(item):
     })
 
 
-def from_work24(key, today, fetch_text=_get_text, workers=8):
+def from_work24(key, today, fetch_text=_get_text, workers=20):
     """조건에 맞는 고용24 공고 전체 (마감일이 지난 공고 제외).
 
     목록에 없는 공고를 마감으로 처리하므로, 받은 건수가 고용24가 알려준 전체 건수에 크게

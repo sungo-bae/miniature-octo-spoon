@@ -198,6 +198,23 @@ def test_from_jobbsn_reads_whole_year_and_keeps_open_only():
     assert len(rows) == 101  # 1000건 중 100건 + 마지막 페이지 1건
 
 
+def test_from_jobbsn_fetches_pages_in_parallel_when_total_is_known():
+    from pipeline.sources import from_jobbsn
+    total = "<totalCount>2005</totalCount>"
+    pages = {1: senuri_xml([bsn(i) for i in range(1000)]).replace("<items>", total + "<items>"),
+             2: senuri_xml([bsn(1000 + i, status="완료") for i in range(1000)]),
+             3: senuri_xml([bsn(2000 + i) for i in range(5)])}
+    calls = []
+
+    def fetch(url):
+        calls.append(url)
+        return pages[int(url.split("pageNo=")[1].split("&")[0])]
+
+    rows = from_jobbsn("k", date(2026, 10, 26), fetch_text=fetch)
+    assert len(calls) == 3
+    assert len(rows) == 1005
+
+
 def test_from_jobbsn_includes_last_year_early_in_year():
     from pipeline.sources import from_jobbsn
     years = []
