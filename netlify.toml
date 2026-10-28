@@ -1,5 +1,5 @@
 [build]
-  command = "node scripts/generate-job-pages.mjs"
+  command = "node scripts/generate-job-pages.mjs && node scripts/update-data-summary.mjs"
   publish = "."
 
 # 채용 상세페이지(/jobs/<slug>.html)는 더 이상 빌드 시점에 정적 파일로 미리 만들지
