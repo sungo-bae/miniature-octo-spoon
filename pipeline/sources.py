@@ -11,7 +11,7 @@ import time
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 import requests
 
@@ -182,17 +182,28 @@ def senuri_record(item):
     })
 
 
-def _get_text(url, tries=4):
-    """공공데이터포털은 연결이 간헐적으로 끊겨서 몇 번 다시 시도한다."""
+def _get_text(url, tries=5):
+    """공공데이터포털·고용24는 연결이 간헐적으로 끊겨서 몇 번 다시 시도한다.
+
+    인증키 오류처럼 다시 해도 같은 4xx 응답은 바로 실패하고, 응답에 적힌 사유를 남긴다
+    (예: 403 "SERVICE_KEY_IS_NOT_REGISTERED_ERROR" — 그 API에 인증키가 등록되지 않음).
+    """
     for attempt in range(1, tries + 1):
         try:
             r = requests.get(url, timeout=60)
-            r.raise_for_status()
-            return r.text
         except requests.RequestException:
             if attempt == tries:
                 raise
             time.sleep(2 ** attempt)
+            continue
+        if 400 <= r.status_code < 500:
+            reason = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", r.text)).strip()[:200]
+            raise SourceError(f"{r.status_code} {urlsplit(url).path}: {reason or r.reason}")
+        if r.ok:
+            return r.text
+        if attempt == tries:
+            r.raise_for_status()
+        time.sleep(2 ** attempt)
 
 
 def _encode_key(key):
@@ -463,7 +474,7 @@ def work24_record(item):
     })
 
 
-def from_work24(key, today, fetch_text=_get_text, workers=20):
+def from_work24(key, today, fetch_text=_get_text, workers=10):
     """조건에 맞는 고용24 공고 전체 (마감일이 지난 공고 제외).
 
     목록에 없는 공고를 마감으로 처리하므로, 받은 건수가 고용24가 알려준 전체 건수에 크게
