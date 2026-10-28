@@ -245,3 +245,19 @@ def test_from_jobbsn_history_filters_by_start_date():
 
     rows = from_jobbsn_history("k", date(2025, 6, 1), date(2026, 10, 27), fetch_text=fetch)
     assert sorted(r["source_id"] for r in rows) == ["2025-000002", "2026-000003"]
+
+
+def test_get_text_reports_key_errors_without_retrying(monkeypatch):
+    import requests
+    from pipeline import sources
+
+    calls = []
+
+    class Resp:
+        status_code, ok, reason = 403, False, "Forbidden"
+        text = "<OpenAPI_ServiceResponse><errMsg>SERVICE_KEY_IS_NOT_REGISTERED_ERROR</errMsg></OpenAPI_ServiceResponse>"
+
+    monkeypatch.setattr(requests, "get", lambda url, timeout: calls.append(url) or Resp())
+    with pytest.raises(sources.SourceError, match="SERVICE_KEY_IS_NOT_REGISTERED_ERROR") as e:
+        sources._get_text("https://apis.data.go.kr/B552474/SenuriService/getJobList?serviceKey=SECRET")
+    assert len(calls) == 1 and "SECRET" not in str(e.value)
