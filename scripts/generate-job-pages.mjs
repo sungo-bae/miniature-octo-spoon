@@ -8,7 +8,7 @@
 
 import { readFileSync, writeFileSync, rmSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { SITE_URL, escapeHtml, jobRegionLabel, pageShell, collectValidJobs } from "../netlify/functions/lib/job-template.mjs";
+import { SITE_URL, escapeHtml, jobRegionLabel, pageShell, collectValidJobs, jobShard, JOB_SHARD_DIR } from "../netlify/functions/lib/job-template.mjs";
 
 const ROOT = process.cwd();
 const JOBS_DIR = join(ROOT, "jobs");
@@ -81,6 +81,25 @@ function buildSitemap() {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`;
 }
 
+// 상세페이지 함수(job-page.mjs)가 읽는 공고 조각 파일. 함수가 켜질 때마다 4.8MB짜리 전체
+// 파일을 받다가 시간 제한에 걸려 서버 오류(5xx)가 나던 것을, 수십 KB짜리 조각 하나로 줄입니다.
+function writeJobShards(entries, fallbackDate) {
+  const dir = join(ROOT, JOB_SHARD_DIR);
+  rmSync(dir, { recursive: true, force: true });
+  mkdirSync(dir, { recursive: true });
+  const shards = new Map();
+  for (const { job, slug } of entries) {
+    const key = jobShard(slug);
+    if (!shards.has(key)) shards.set(key, {});
+    shards.get(key)[slug] = job;
+  }
+  // 공고가 없는 조각도 빈 파일로 써서, 함수가 "조각 없음"과 "공고 없음"을 구분할 필요가 없게 합니다.
+  for (let i = 0; i < 256; i++) {
+    const key = i.toString(16).padStart(2, "0");
+    writeFileSync(join(dir, `${key}.json`), JSON.stringify({ fallbackDate, jobs: shards.get(key) || {} }), "utf-8");
+  }
+}
+
 function main() {
   const adminJobs = readJobsFile(join(ROOT, "content", "jobs.json"));
   const externalJobs = readJobsFile(join(ROOT, "content", "jobs-external.json"));
@@ -97,6 +116,7 @@ function main() {
   mkdirSync(JOBS_DIR, { recursive: true });
   writeFileSync(join(JOBS_DIR, "index.html"), jobIndexPage(entries), "utf-8");
   writeFileSync(join(ROOT, "sitemap.xml"), buildSitemap(), "utf-8");
+  writeJobShards(entries, (externalJobs.syncedAt || adminJobs.syncedAt || "").slice(0, 10));
 
   // /report.html 은 더 이상 여기서 만들지 않습니다. 매일 아침 전체 공고로 계산하는
   // 실버잡 데이터 분석(일자리 현황 리포트)을 끼워 넣은 정적 페이지입니다.
