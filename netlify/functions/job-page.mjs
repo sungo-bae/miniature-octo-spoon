@@ -18,45 +18,54 @@
 // 문제가 있어 이 방식으로 바꿨습니다.) 같은 함수 인스턴스가 짧은 시간 안에 여러
 // 요청을 처리할 때 매번 다시 받아오지 않도록 몇 분간 메모리에 캐시합니다.
 
-import { collectValidJobs, jobDetailPage, pageShell } from "./lib/job-template.mjs";
+// 2026-10-28: 함수가 켜질 때마다 4.8MB짜리 전체 공고 파일(jobs-external.json)을 받다 보니,
+// 구글 크롤러가 한꺼번에 방문하면 시간 제한에 걸려 서버 오류(5xx)가 날 수 있었습니다
+// (Search Console에 서버 오류 1,280건 경고). 이제 빌드 때 만든 조각 파일(/job-data/<2자리>.json, 수십 KB) 중 해당 공고가
+// 든 조각 하나만 받습니다. 조각이 아직 없는 배포(빌드 전)에서는 예전처럼 전체 파일을 씁니다.
+
+import { collectValidJobs, jobDetailPage, jobShard, pageShell, JOB_SHARD_DIR } from "./lib/job-template.mjs";
 
 const SITE_URL = "https://silverjob.kr";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5분
+const FETCH_TIMEOUT_MS = 6000;
 
-let cached = null; // { jobBySlug: Map, fallbackDate: string, at: number }
+const shardCache = new Map(); // shard -> { jobs: {slug: job}, fallbackDate, at }
 
-async function fetchJobsFile(path) {
+async function fetchJson(path) {
   const fullUrl = `${SITE_URL}${path}`;
   try {
-    const res = await fetch(fullUrl);
-    console.log(`job-page: fetch ${fullUrl} -> status ${res.status}`);
-    if (!res.ok) return { jobs: [] };
-    const data = await res.json();
-    const jobs = Array.isArray(data.jobs) ? data.jobs : [];
-    console.log(`job-page: ${path} parsed, jobs=${jobs.length}`);
-    return { jobs, syncedAt: data.syncedAt };
+    const res = await fetch(fullUrl, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    if (!res.ok) {
+      console.log(`job-page: fetch ${fullUrl} -> status ${res.status}`);
+      return null;
+    }
+    return await res.json();
   } catch (err) {
     console.error(`job-page: fetch ${fullUrl} failed:`, err && err.message ? err.message : err);
-    return { jobs: [] };
+    return null;
   }
 }
 
-async function loadJobBySlug() {
-  if (cached && Date.now() - cached.at < CACHE_TTL_MS) {
-    console.log(`job-page: using cached job list (${cached.jobBySlug.size}건, ${Math.round((Date.now() - cached.at) / 1000)}초 전 로드)`);
-    return cached;
-  }
-
-  const [adminJobs, externalJobs] = await Promise.all([
-    fetchJobsFile("/content/jobs.json"),
-    fetchJobsFile("/content/jobs-external.json")
+// 조각 파일이 없을 때만 쓰는 예전 방식 (전체 파일 두 개를 받아 슬러그 목록을 만든다)
+async function loadFromFullFiles() {
+  const [admin, external] = await Promise.all([
+    fetchJson("/content/jobs.json"),
+    fetchJson("/content/jobs-external.json")
   ]);
-  const fallbackDate = (externalJobs.syncedAt || adminJobs.syncedAt || "").slice(0, 10);
-  const entries = collectValidJobs(adminJobs.jobs.concat(externalJobs.jobs));
-  console.log(`job-page: 목록 재구성 완료, admin=${adminJobs.jobs.length} external=${externalJobs.jobs.length} valid=${entries.length}`);
+  const list = (x) => (x && Array.isArray(x.jobs) ? x.jobs : []);
+  const jobs = {};
+  for (const { job, slug } of collectValidJobs(list(admin).concat(list(external)))) jobs[slug] = job;
+  return { jobs, fallbackDate: ((external && external.syncedAt) || (admin && admin.syncedAt) || "").slice(0, 10) };
+}
 
-  cached = { jobBySlug: new Map(entries.map((e) => [e.slug, e.job])), fallbackDate, at: Date.now() };
-  return cached;
+async function loadShard(slug) {
+  const key = jobShard(slug);
+  const hit = shardCache.get(key);
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit;
+  const data = (await fetchJson(`/${JOB_SHARD_DIR}/${key}.json`)) || (await loadFromFullFiles());
+  const entry = { jobs: data.jobs || {}, fallbackDate: data.fallbackDate || "", at: Date.now() };
+  shardCache.set(key, entry);
+  return entry;
 }
 
 function notFoundPage() {
@@ -85,8 +94,8 @@ export default async (req) => {
   const slug = pathMatch ? pathMatch[1] : "";
   console.log(`job-page: 요청 url=${req.url} pathname=${url.pathname} slug=${JSON.stringify(slug)}`);
 
-  const { jobBySlug, fallbackDate } = await loadJobBySlug();
-  const job = jobBySlug.get(slug);
+  const { jobs, fallbackDate } = slug ? await loadShard(slug) : { jobs: {}, fallbackDate: "" };
+  const job = Object.prototype.hasOwnProperty.call(jobs, slug) ? jobs[slug] : null;
   console.log(`job-page: slug=${slug} found=${!!job}`);
 
   if (!job) {

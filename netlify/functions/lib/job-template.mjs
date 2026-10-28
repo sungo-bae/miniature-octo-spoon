@@ -287,3 +287,17 @@ export function jobDetailPage(job, slug, fallbackDate) {
     noindex: true
   });
 }
+
+// 상세페이지 함수가 4.8MB짜리 전체 공고 파일 대신 작은 조각 하나만 받도록, 빌드 때 공고를
+// 슬러그 해시로 256조각(/job-data/00.json ~ ff.json)에 나눠 씁니다. 빌드 스크립트와
+// job-page.mjs가 같은 규칙을 쓰도록 이 함수 하나로 공유합니다.
+export const JOB_SHARD_DIR = "job-data";
+
+export function jobShard(slug) {
+  let h = 0x811c9dc5; // FNV-1a
+  for (let i = 0; i < slug.length; i++) {
+    h ^= slug.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return (h & 0xff).toString(16).padStart(2, "0");
+}
