@@ -1,10 +1,18 @@
 name: daily-silverjob
 
 # 매일 06:07 KST: 공고 수집 → 하루치 스냅샷 반영 → 주간 예측 갱신
+# GitHub은 바쁠 때 예약 실행을 몇 시간씩 미루거나 건너뛰어서, 07:37 KST에 한 번 더 돈다.
+# 예약 실행은 그날 이미 반영한 출처를 건너뛰므로, 두 번째 실행은 빠졌거나 실패한 출처만 받는다.
 on:
   schedule:
     - cron: "7 21 * * *"
+    - cron: "37 22 * * *"
   workflow_dispatch:
+
+# 두 실행이 겹치면 같은 공공 API를 동시에 두드리게 되므로 차례로 돈다
+concurrency:
+  group: daily-silverjob
+  cancel-in-progress: false
 
 jobs:
   ingest-and-forecast:
@@ -15,7 +23,10 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
       WORK24_API_KEY: ${{ secrets.WORK24_API_KEY }}
+      NETLIFY_BUILD_HOOK: ${{ secrets.NETLIFY_BUILD_HOOK }}
       TZ: Asia/Seoul
+      # 직접 실행(Run workflow)은 언제나 새로 받고, 예약 실행만 이미 받은 출처를 건너뛴다
+      SKIP: ${{ github.event_name == 'schedule' && '--skip-if-done' || '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -25,14 +36,18 @@ jobs:
       - name: Ingest (고용24)
         # 노인 구인정보와 겹치는 공고를 거르기 위해 먼저 받는다. 키가 없으면 건너뛴다.
         if: ${{ env.WORK24_API_KEY != '' }}
-        run: python -m pipeline.ingest --source work24
+        run: python -m pipeline.ingest --source work24 $SKIP
       - name: Ingest (노인 구인정보)
         if: ${{ !cancelled() }}
-        run: python -m pipeline.ingest --source kordi
+        run: python -m pipeline.ingest --source kordi $SKIP
       - name: Ingest (자립형일자리 사업모집)
         if: ${{ !cancelled() }}   # 앞 출처가 실패해도 이 출처는 수집한다
-        run: python -m pipeline.ingest --source kordi_jobbsn
+        run: python -m pipeline.ingest --source kordi_jobbsn $SKIP
       - name: Forecast
         if: ${{ !cancelled() }}
         run: python -m pipeline.forecast
-
+      - name: 실버잡 홈페이지 다시 빌드 (현황 리포트·일자리 날씨 요약 문구 갱신)
+        # 새로 반영한 출처가 있을 때만. 훅이 없거나 실패해도 수집 결과에는 영향이 없다.
+        if: ${{ !cancelled() && env.INGESTED == '1' && env.NETLIFY_BUILD_HOOK != '' }}
+        continue-on-error: true
+        run: curl -fsS -X POST -d '{}' "$NETLIFY_BUILD_HOOK"

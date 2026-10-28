@@ -30,8 +30,15 @@ def main(argv=None):
                          "work24 = 고용24 (준)고령자 우대 공고, 그 외 이름은 --csv 필요")
     ap.add_argument("--csv", help="정규화 필드명을 헤더로 쓰는 CSV 경로")
     ap.add_argument("--run-date", default=date.today().isoformat())
+    ap.add_argument("--skip-if-done", action="store_true",
+                    help="그날 이 출처를 이미 반영했으면 건너뛴다 (예약 실행이 늦거나 두 번 돌 때)")
     args = ap.parse_args(argv)
     run_date = date.fromisoformat(args.run_date)
+
+    if args.skip_if_done and SupabaseRest().select("ingest_runs", {
+            "select": "run_date", "source": f"eq.{args.source}", "run_date": f"eq.{args.run_date}"}):
+        print(f"{args.source}: {args.run_date} 수집은 이미 반영돼 있어 건너뜁니다.")
+        return
 
     if args.csv:
         rows = sources.from_csv(args.csv)
@@ -82,6 +89,10 @@ def main(argv=None):
     result = db.rpc(
         "ingest_postings", p_run_date=args.run_date, p_source=args.source, p_rows=rows)
     print(json.dumps({"run_date": args.run_date, "source": args.source, **result}, ensure_ascii=False))
+    # GitHub Actions 다음 단계에 "새로 반영한 출처가 있다"고 알린다 (홈페이지 다시 빌드 여부)
+    if os.environ.get("GITHUB_ENV"):
+        with open(os.environ["GITHUB_ENV"], "a") as f:
+            f.write("INGESTED=1\n")
 
 
 if __name__ == "__main__":
