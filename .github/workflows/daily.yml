@@ -23,6 +23,7 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       DATA_GO_KR_SERVICE_KEY: ${{ secrets.DATA_GO_KR_SERVICE_KEY }}
       WORK24_API_KEY: ${{ secrets.WORK24_API_KEY }}
+      NETLIFY_BUILD_HOOK: ${{ secrets.NETLIFY_BUILD_HOOK }}
       TZ: Asia/Seoul
       # 직접 실행(Run workflow)은 언제나 새로 받고, 예약 실행만 이미 받은 출처를 건너뛴다
       SKIP: ${{ github.event_name == 'schedule' && '--skip-if-done' || '' }}
@@ -45,4 +46,8 @@ jobs:
       - name: Forecast
         if: ${{ !cancelled() }}
         run: python -m pipeline.forecast
-
+      - name: 실버잡 홈페이지 다시 빌드 (현황 리포트·일자리 날씨 요약 문구 갱신)
+        # 새로 반영한 출처가 있을 때만. 훅이 없거나 실패해도 수집 결과에는 영향이 없다.
+        if: ${{ !cancelled() && env.INGESTED == '1' && env.NETLIFY_BUILD_HOOK != '' }}
+        continue-on-error: true
+        run: curl -fsS -X POST -d '{}' "$NETLIFY_BUILD_HOOK"

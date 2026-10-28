@@ -88,7 +88,7 @@ Supabase 공개(publishable) 키로 공개 뷰만 읽습니다.
    - **지역:** 근무지(`workPlcNm`)가 비어 있는 공고는 상세조회(`getJobInfo`)의 사업장 주소로 보완합니다. 실측으로 지역 미상이 55%에서 4%로 줄었습니다. 상세조회는 건당 수 초가 걸려서 새 공고만 조회합니다.
    - 광주·전남은 API 표기에 맞춰 `전남광주` 하나로 묶습니다.
    - 처음 한 번 `python -m pipeline.backfill --since 2024-10-01`을 실행하면 과거 공고로 주간 추세를 채워, 첫날부터 예측을 쓸 수 있습니다. 자립형일자리는 `--source kordi_jobbsn`을 붙입니다. Actions의 **backfill-history**에서도 실행할 수 있습니다.
-3. GitHub 저장소 Secrets에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DATA_GO_KR_SERVICE_KEY`, `WORK24_API_KEY`(고용24 인증키, silverjob.kr Netlify 환경변수와 같은 값)를 등록합니다. `WORK24_API_KEY`가 없으면 고용24 수집은 건너뜁니다.
+3. GitHub 저장소 Secrets에 `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DATA_GO_KR_SERVICE_KEY`, `WORK24_API_KEY`(고용24 인증키, silverjob.kr Netlify 환경변수와 같은 값)를 등록합니다. `WORK24_API_KEY`가 없으면 고용24 수집은 건너뜁니다. 선택: `NETLIFY_BUILD_HOOK`(Netlify 빌드 훅 주소)을 넣으면 새로 반영한 날 silverjob.kr을 다시 빌드해 현황 리포트·일자리 날씨의 요약 문구와 검색 설명을 오늘 숫자로 바꿉니다.
    - 인증키는 인코딩된 키와 원본 키 중 어느 것을 넣어도 됩니다.
    - 인증키 오류나 호출 한도 초과가 나면 그날 수집은 반영하지 않습니다. 반영하면 공고가 일괄 마감으로 기록되기 때문입니다.
 4. 시도별 65세 이상 인구를 `region_population`에 적재합니다(`supabase/seed/region_population_2026_08.sql`, 행정안전부 주민등록 인구통계 2026년 8월 말, 16개 시도 합계 11,278,011명 = 전국 합계와 일치). 이 데이터로 기회 지수(고령 인구 1만 명당 공고 수)를 계산합니다. 새 수치는 `year`를 올려 넣으면 뷰가 최근 연도를 씁니다.

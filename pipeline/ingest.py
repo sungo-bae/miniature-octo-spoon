@@ -89,6 +89,10 @@ def main(argv=None):
     result = db.rpc(
         "ingest_postings", p_run_date=args.run_date, p_source=args.source, p_rows=rows)
     print(json.dumps({"run_date": args.run_date, "source": args.source, **result}, ensure_ascii=False))
+    # GitHub Actions 다음 단계에 "새로 반영한 출처가 있다"고 알린다 (홈페이지 다시 빌드 여부)
+    if os.environ.get("GITHUB_ENV"):
+        with open(os.environ["GITHUB_ENV"], "a") as f:
+            f.write("INGESTED=1\n")
 
 
 if __name__ == "__main__":
