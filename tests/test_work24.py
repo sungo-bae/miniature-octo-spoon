@@ -144,3 +144,17 @@ def test_kordi_ingest_drops_postings_now_counted_in_work24(monkeypatch):
     assert DB.sent == ["K3"]
     # 이미 들어와 있던 노인 구인정보 사본 중 고용24에도 있는 것만 지운다
     assert db.deleted == [{"source": "eq.kordi", "source_id": "in.(K1)"}]
+
+
+def test_scheduled_rerun_skips_a_source_already_ingested_today(monkeypatch):
+    class DB(FakeDB):
+        def select(self, table, params=None):
+            if table == "ingest_runs" and params.get("run_date") == "eq.2026-10-28":
+                return [{"run_date": "2026-10-28"}]
+            return super().select(table, params)
+
+    db = DB(None)
+    monkeypatch.setattr(ingest, "SupabaseRest", lambda: db)
+    monkeypatch.setattr(ingest.sources, "from_work24", lambda key, d: pytest.fail("이미 받은 출처를 다시 받음"))
+    ingest.main(["--source", "work24", "--run-date", "2026-10-28", "--skip-if-done"])
+    assert not db.rpc_called
