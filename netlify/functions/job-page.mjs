@@ -23,7 +23,7 @@
 // (Search Console에 서버 오류 1,280건 경고). 이제 빌드 때 만든 조각 파일(/job-data/<2자리>.json, 수십 KB) 중 해당 공고가
 // 든 조각 하나만 받습니다. 조각이 아직 없는 배포(빌드 전)에서는 예전처럼 전체 파일을 씁니다.
 
-import { collectValidJobs, jobDetailPage, jobShard, pageShell, JOB_SHARD_DIR } from "./lib/job-template.mjs";
+import { collectValidJobs, jobDetailPage, jobShard, pageShell, JOB_SHARD_DIR, escapeHtml } from "./lib/job-template.mjs";
 
 const SITE_URL = "https://silverjob.kr";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5분
@@ -68,11 +68,38 @@ async function loadShard(slug) {
   return entry;
 }
 
-function notFoundPage() {
+// 검색엔진에 남아있는 옛 링크로 들어온 분이 빈손으로 돌아가지 않도록, 지금 올라와
+// 있는 공고 몇 건을 대신 보여드립니다(어떤 직종을 찾으셨는지는 알 수 없어서,
+// 고정된 조각 파일(00번) 하나에서 뽑은 표본입니다 — 슬러그가 해시 기반이라
+// 특정 조각에 공고가 쏠리지 않습니다).
+const SAMPLE_SHARD_KEY = "00";
+async function sampleCurrentJobs() {
+  try {
+    const hit = shardCache.get(SAMPLE_SHARD_KEY);
+    const data = hit && Date.now() - hit.at < CACHE_TTL_MS ? hit : await fetchJson(`/${JOB_SHARD_DIR}/${SAMPLE_SHARD_KEY}.json`);
+    if (!data || !data.jobs) return [];
+    if (!hit) shardCache.set(SAMPLE_SHARD_KEY, { jobs: data.jobs, fallbackDate: data.fallbackDate || "", at: Date.now() });
+    return Object.entries(data.jobs)
+      .slice(0, 4)
+      .map(([slug, job]) => ({ slug, job }));
+  } catch {
+    return [];
+  }
+}
+
+function notFoundPage(samples) {
+  const sampleHtml = samples && samples.length
+    ? `
+      <h2 style="font-size:1.05rem; margin-top:28px;">대신 이런 공고는 어떠세요?</h2>
+      <ul style="list-style:disc; padding-left:1.2em; margin:8px 0 0;">
+${samples.map(({ slug, job }) => `        <li style="margin-bottom:6px;"><a href="/jobs/${slug}.html">${escapeHtml(job.title || "")} — ${escapeHtml(job.company || "")}</a></li>`).join("\n")}
+      </ul>`
+    : "";
   const bodyHtml = `
       <h1 class="section-title" style="font-size:clamp(1.5rem,3.2vw,2rem);">공고를 찾을 수 없습니다</h1>
       <p class="section-desc">이미 마감되었거나 삭제된 채용정보일 수 있습니다.</p>
       <p><a href="/#jobs" class="btn btn-primary">전체 일자리 보러 가기</a></p>
+${sampleHtml}
 `;
   return pageShell({
     title: "공고를 찾을 수 없습니다",
@@ -99,7 +126,8 @@ export default async (req) => {
   console.log(`job-page: slug=${slug} found=${!!job}`);
 
   if (!job) {
-    return new Response(notFoundPage(), {
+    const samples = await sampleCurrentJobs();
+    return new Response(notFoundPage(samples), {
       status: 404,
       headers: { "Content-Type": "text/html; charset=utf-8" }
     });
