@@ -89,6 +89,9 @@ def main(argv=None):
     result = db.rpc(
         "ingest_postings", p_run_date=args.run_date, p_source=args.source, p_rows=rows)
     print(json.dumps({"run_date": args.run_date, "source": args.source, **result}, ensure_ascii=False))
+    if args.source == "work24":
+        # silverjob.kr 홈 화면이 읽는 공고 목록(mv_site_jobs)과 숫자 요약을 오늘 자료로 다시 만든다
+        print(f"홈 화면 공고 목록 갱신: {db.rpc('refresh_site_jobs')}건")
     # GitHub Actions 다음 단계에 "새로 반영한 출처가 있다"고 알린다 (홈페이지 다시 빌드 여부)
     if os.environ.get("GITHUB_ENV"):
         with open(os.environ["GITHUB_ENV"], "a") as f:

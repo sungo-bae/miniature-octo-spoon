@@ -31,6 +31,10 @@
 - 연말에 다음 해 사업 참여자를 대량으로 미리 모집하는 등 민간 구인과 흐름이 달라서, 주간 예측은 지금은 `kordi`만 대상으로 합니다(`FORECAST_SOURCES`).
 - 두 API는 같은 공공데이터포털 인증키를 씁니다.
 
+## silverjob.kr 홈 화면 공고 목록 (`mv_site_jobs`)
+
+silverjob.kr 홈의 일자리 목록·검색·숫자와 공고 상세 페이지는 이 파이프라인이 매일 받는 고용24 공고 전체를 읽습니다(`20261104000000_site_jobs.sql`). 열 이름과 값(권역 8개, 직종 6개, 급여·자격요건·주소 문구, 페이지 주소 `slug`)은 사이트가 예전에 쓰던 `content/jobs-external.json`과 같습니다. 고용24 수집이 끝나면 `refresh_site_jobs()`로 새로 만듭니다. `slug`는 사이트 `jobSlug()`와 같은 FNV-1a 해시(`sources.site_slug`)입니다.
+
 ## 홈페이지 (`site/index.html`)
 
 어르신용 한 페이지 화면입니다. 큰 글씨와 높은 대비를 쓰고, 다크 모드와 휴대폰 화면을 지원합니다.
