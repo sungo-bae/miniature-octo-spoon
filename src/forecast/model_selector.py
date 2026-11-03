@@ -16,6 +16,24 @@ import pandas as pd
 from sklearn.ensemble import GradientBoostingRegressor
 
 from src.forecast.baselines import seasonal_naive_7
+from src.forecast.demand_pattern import classify_demand_pattern
+from src.forecast.intermittent import croston_sba_forecast
+
+# Croston SBA 분기 조건 (4.6절 보완 B5, experiments/2026-11-03-m5-litmus-test 실증 결과):
+#
+# M5 CA_1 매장 48개 SKU 비교 실험에서 Croston SBA는 수요크기 자체가
+# 불규칙한 lumpy 패턴에는 전 셀에서 블렌드모델보다 나빴고(flat 예측이
+# 큰 변동성을 못 따라감), intermittent 패턴 중에서도 매출 상위(A등급,
+# 학습구간 일평균 판매량 대략 2 이상) SKU는 ML 블렌드가 이미 더
+# 나았다(블렌드 14.5% 개선 -> Croston 적용시 -1.3%로 악화). 반면
+# 매출 하위(B/C등급, 일평균 1 내외) intermittent SKU에서는 Croston이
+# 블렌드보다 뚜렷이 나았다(-1.1%/-9.1% 악화 -> +12.8%/+14.4% 개선).
+# 따라서 "intermittent 패턴 + 저매출" 조합에만 Croston을 적용한다.
+# _LOW_VOLUME_AVG_RATE 임계값은 CA_1 1개 매장 표본에서 A등급과 B/C등급이
+# 뚜렷이 갈리는 지점(일평균 약 1.3)으로 정했으며, 다른 매장으로 재검증 시
+# 조정이 필요할 수 있다.
+_CROSTON_PATTERN = "intermittent"
+_LOW_VOLUME_AVG_RATE = 1.3
 
 # holiday_name 등 텍스트 컬럼은 사람이 읽기 위한 부가정보이며 모델 입력에서 제외한다.
 _NON_NUMERIC_FEATURE_COLUMNS = ("holiday_name",)
@@ -32,6 +50,8 @@ class ForecastResult:
     candidate: pd.Series  # Bias 보정 적용된 최종 예측
     baseline: pd.Series
     bias_factor: float
+    method: str = "blend"  # "blend"(계절나이브+GBM) | "croston_sba"
+    demand_pattern: str | None = None
 
 
 def fit_bias_factor(actual: pd.Series, candidate: pd.Series) -> float:
@@ -95,4 +115,47 @@ def run_baseline_candidate_backtest(
     candidate_corrected = candidate_raw * bias_factor
     return ForecastResult(
         candidate=candidate_corrected, baseline=baseline_test, bias_factor=bias_factor
+    )
+
+
+def run_pattern_aware_backtest(
+    y: pd.Series,
+    features: pd.DataFrame,
+    test_start: pd.Timestamp,
+    bias_window: int = 84,
+) -> ForecastResult:
+    """수요패턴(4.6절 보완 B5)에 따라 모델을 분기하는 백테스트.
+
+    학습구간만으로 ADI/CV^2 분류와 일평균 판매량을 계산해, intermittent
+    패턴이면서 저매출(_LOW_VOLUME_AVG_RATE 미만)인 SKU만 Croston
+    SBA(croston_sba_forecast)를 사용하고, 그 외(smooth/erratic/lumpy,
+    고매출 intermittent)에는 기존 run_baseline_candidate_backtest의
+    계절나이브+GBM 블렌드를 사용한다. 분류를 검증구간이 아닌 학습구간만
+    으로 수행하는 것은 미래 데이터 누출(data leakage)을 막기 위함이다.
+    """
+    train_y = y.loc[y.index < test_start]
+    test_idx = features.index[features.index >= test_start]
+    if len(train_y) == 0 or len(test_idx) == 0:
+        raise ValueError("test_start 기준으로 학습/검증 구간이 비어 있습니다.")
+
+    pattern = classify_demand_pattern(train_y)
+    use_croston = pattern == _CROSTON_PATTERN and train_y.mean() < _LOW_VOLUME_AVG_RATE
+
+    if not use_croston:
+        result = run_baseline_candidate_backtest(y, features, test_start, bias_window)
+        result.demand_pattern = pattern
+        return result
+
+    baseline_full = seasonal_naive_7(y)
+    baseline_test = baseline_full.loc[test_idx]
+
+    forecast_values = croston_sba_forecast(train_y, horizon=len(test_idx))
+    candidate = pd.Series(forecast_values, index=test_idx)
+
+    return ForecastResult(
+        candidate=candidate,
+        baseline=baseline_test,
+        bias_factor=1.0,
+        method="croston_sba",
+        demand_pattern=pattern,
     )

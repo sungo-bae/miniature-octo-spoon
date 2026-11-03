@@ -56,8 +56,38 @@
 
 ## 다음 단계 제안
 
-1. B/C등급 간헐·럼피 셀에는 Croston/TSB 계열 모델을 후보에 추가하고, 평가지표를
-   WAPE 대신 MASE·서비스수준으로 전환 (4.6절 원안대로).
-2. 셀별 모델 선택(현재는 전 SKU 동일 블렌드 비율 0.5/0.5)을 수요패턴에 따라
-   다르게 적용하는 로직을 `model_selector.py`에 추가.
+1. ~~B/C등급 간헐·럼피 셀에는 Croston/TSB 계열 모델을 후보에 추가하고, 평가지표를
+   WAPE 대신 MASE·서비스수준으로 전환 (4.6절 원안대로).~~ → 아래 "후속:
+   Croston SBA 적용 결과" 참고. 완료(intermittent만), lumpy는 미해결.
+2. ~~셀별 모델 선택(현재는 전 SKU 동일 블렌드 비율 0.5/0.5)을 수요패턴에 따라
+   다르게 적용하는 로직을 `model_selector.py`에 추가.~~ → 완료
+   (`model_selector.run_pattern_aware_backtest`).
 3. 가능하면 다른 매장(TX_1, WI_1 등)으로 재검증해 표본 수를 늘려 신호를 재확인.
+   (미착수)
+
+## 후속: Croston SBA 적용 결과 (같은 날, 같은 표본 재검증)
+
+`src/forecast/demand_pattern.py`(ADI/CV² 분류), `src/forecast/intermittent.py`
+(Croston SBA), `model_selector.run_pattern_aware_backtest()`(분기 로직)를
+추가해 같은 48개 SKU 표본으로 `compare_pattern_aware.py`를 실행했다. 상세
+설계 근거는 `docs/algorithm_specification/demand_pattern_routing.md` 참고.
+
+| ABC | 패턴 | 기존 블렌드 개선율 | 신규(패턴분기) 개선율 |
+|---|---|---|---|
+| A | smooth/erratic/lumpy/intermittent | 14~19% | 14~18% (동일 수준, 블렌드 유지) |
+| B | intermittent | **-1.1%** | **+12.8%** |
+| B | lumpy | +4.1% | +4.1% (동일, 미해결) |
+| C | intermittent | **-9.1%** | **+14.4%** |
+| C | lumpy | -0.1% | -0.1% (동일, 미해결) |
+
+전체 가중 WAPE 개선율: 13.0% → **14.4%**. 처음 Croston을 intermittent/lumpy
+모두에 무조건 적용했을 때는 lumpy 전 셀과 A등급 intermittent에서 오히려
+악화됐다(B lumpy +4.1%→-18.2%, C lumpy -0.1%→-29.8%, A intermittent
+14.5%→-1.3%) — 수요크기 변동이 큰 lumpy에는 Croston의 평평한 예측이
+맞지 않고, 매출이 충분한 A등급은 이미 ML 블렌드가 더 낫기 때문이다.
+그래서 "intermittent 패턴 + 학습구간 일평균 판매량 1.3 미만"으로 조건을
+좁혔고, 그 결과가 위 표다.
+
+**lumpy는 여전히 미해결 과제다.** 블렌드와 Croston 둘 다 B/C lumpy에서
+거의 개선이 없다. TSB 등 다른 방법이 필요하다(설계문서 "알려진 한계"
+참고).
