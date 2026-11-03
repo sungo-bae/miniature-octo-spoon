@@ -25,7 +25,7 @@ def test_record_maps_fields_like_the_site():
     assert (r["posted_date"], r["deadline_date"]) == ("2026-10-25", "2026-11-30")
     assert r["raw"]["holidayTpNm"] == "주5일근무"
     # 원본은 쓰는 필드만 남겨 하루치 요청 크기를 줄인다
-    assert "title" not in r["raw"] and set(r["raw"]) <= set(WORK24_RAW_FIELDS)
+    assert "title" not in r["raw"] and set(r["raw"]) <= set(WORK24_RAW_FIELDS) | {"slug"}
 
 
 def test_record_uses_official_job_code_for_care_work():
@@ -91,6 +91,8 @@ class FakeDB:
         return []
 
     def rpc(self, fn, **kw):
+        if fn == "refresh_site_jobs":
+            return 0
         self.rpc_called = True
         return {"fetched": len(kw["p_rows"]), "new": 0, "closed": 0}
 
@@ -158,3 +160,30 @@ def test_scheduled_rerun_skips_a_source_already_ingested_today(monkeypatch):
     monkeypatch.setattr(ingest.sources, "from_work24", lambda key, d: pytest.fail("이미 받은 출처를 다시 받음"))
     ingest.main(["--source", "work24", "--run-date", "2026-10-28", "--skip-if-done"])
     assert not db.rpc_called
+
+
+def test_record_keeps_what_the_homepage_shows_and_its_page_address():
+    from pipeline.sources import site_slug
+    r = work24_record(dict(wanted(1), wantedInfoUrl="https://www.work24.go.kr/x?wantedAuthNo=K1&a=b"))
+    assert r["raw"]["slug"] == site_slug("https://www.work24.go.kr/x?wantedAuthNo=K1&a=b")
+    assert r["raw"]["basicAddr"] == "서울특별시 강남구 테헤란로 1"
+    # 원문 주소가 없으면 사이트처럼 "제목|업체|권역"으로 주소를 만든다
+    assert work24_record(wanted(2))["raw"]["slug"] == site_slug("아파트 경비원 모집|OO관리|서울")
+    # 사이트 js/main.js jobSlug()(UTF-16 코드 단위 FNV-1a)로 계산한 값과 같아야 링크가 맞는다
+    assert site_slug("요양보호사 모집|가나다요양원|경기·인천") == "job-47a620f8"
+
+
+def test_work24_ingest_refreshes_the_homepage_list(monkeypatch):
+    class DB(FakeDB):
+        calls = []
+
+        def rpc(self, fn, **kw):
+            DB.calls.append(fn)
+            return 5 if fn == "refresh_site_jobs" else super().rpc(fn, **kw)
+
+    db = DB(None)
+    monkeypatch.setattr(ingest, "SupabaseRest", lambda: db)
+    monkeypatch.setenv("WORK24_API_KEY", "k")
+    monkeypatch.setattr(ingest.sources, "from_work24", lambda key, d: [work24_record(wanted(i)) for i in range(3)])
+    ingest.main(["--source", "work24", "--run-date", "2026-11-04"])
+    assert DB.calls == ["ingest_postings", "refresh_site_jobs"]

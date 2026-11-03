@@ -377,7 +377,33 @@ WORK24_MAX_PAGES = 800
 WORK24_EMPLOYMENT = "민간 일자리(고용24)"
 # 하루 수만 건을 한 번에 반영하므로 원본은 화면·분석에 쓰는 필드만 남긴다
 # (전체를 담으면 요청이 37MB가 되어 Supabase 게이트웨이의 100초 제한에 걸렸다)
-WORK24_RAW_FIELDS = ("wantedInfoUrl", "jobsCd", "sal", "salTpNm", "holidayTpNm", "minEdubg", "career")
+WORK24_RAW_FIELDS = ("wantedInfoUrl", "jobsCd", "sal", "salTpNm", "holidayTpNm", "minEdubg", "maxEdubg",
+                     "career", "infoSvc", "region", "basicAddr", "detailAddr")
+
+# silverjob.kr의 8개 권역 (사이트 sync-work24-jobs.mjs의 mapRegion과 같은 규칙)
+SITE_REGIONS = (("서울", "서울"), ("인천", "경기·인천"), ("경기", "경기·인천"), ("부산", "부산·경남"),
+                ("경남", "부산·경남"), ("울산", "부산·경남"), ("대구", "대구·경북"), ("경북", "대구·경북"),
+                ("광주", "광주·전라"), ("전남", "광주·전라"), ("전북", "광주·전라"), ("대전", "대전·충청"),
+                ("충남", "대전·충청"), ("충북", "대전·충청"), ("세종", "대전·충청"), ("강원", "강원"),
+                ("제주", "제주"))
+
+
+def site_region(raw_region):
+    for word, region in SITE_REGIONS:
+        if word in (raw_region or ""):
+            return region
+    return ""
+
+
+def site_slug(key):
+    """silverjob.kr 공고 페이지 주소(/jobs/<slug>.html). 사이트 js/main.js의 jobSlug()와 같은
+    FNV-1a 해시를 UTF-16 코드 단위로 계산한다 — 두 곳이 어긋나면 링크가 깨진다."""
+    h = 0x811C9DC5
+    data = key.encode("utf-16-le")
+    for i in range(0, len(data), 2):
+        h ^= data[i] | (data[i + 1] << 8)
+        h = (h * 0x01000193) & 0xFFFFFFFF
+    return f"job-{h:08x}"
 
 # 사이트와 같은 보조 필터: 제목만으로 시니어 일자리와 무관하다고 확신할 수 있는 공고
 WORK24_UNRELATED = re.compile(
@@ -470,7 +496,8 @@ def work24_record(item):
         "wage_unit": unit,
         "posted_date": parse_work24_date(item.get("regDt")),
         "deadline_date": parse_work24_date(item.get("closeDt")),
-        "raw": {k: item[k] for k in WORK24_RAW_FIELDS if item.get(k)},
+        "raw": {k: item[k] for k in WORK24_RAW_FIELDS if item.get(k)} | {"slug": site_slug(
+            item.get("wantedInfoUrl") or f"{title}|{item.get('company')}|{site_region(item.get('region'))}")},
     })
 
 
