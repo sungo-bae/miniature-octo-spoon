@@ -18,8 +18,10 @@
      "지원하기"·"카카오톡으로 문의하기"를 누르면 어떤 공고·지역·직종에서 눌렸는지만 Supabase에 기록합니다
      (이름·연락처 등 개인정보는 보내지 않습니다). 공개 키는 이 표에 행을 추가만 할 수 있고 읽을 수 없습니다.
      기록이 실패해도 버튼 동작에는 영향이 없습니다. */
-  var CLICK_URL = "https://idngidaxescxuyjzirob.supabase.co/rest/v1/apply_clicks";
-  var CLICK_KEY = "sb_publishable_hGMZ7IU3qZZc3jGzUP1ySQ_h1eRn7m0";
+  var SUPABASE_REST = "https://idngidaxescxuyjzirob.supabase.co/rest/v1/";
+  var SUPABASE_KEY = "sb_publishable_hGMZ7IU3qZZc3jGzUP1ySQ_h1eRn7m0"; // 공개(publishable) 키
+  var CLICK_URL = SUPABASE_REST + "apply_clicks";
+  var CLICK_KEY = SUPABASE_KEY;
 
   function cut40(value) {
     return value ? String(value).slice(0, 40) : null;
@@ -139,11 +141,7 @@
       return;
     }
 
-    var counts = {};
-    JOBS.forEach(function (job) {
-      if (job.region !== region || !job.regionDetail) return;
-      counts[job.regionDetail] = (counts[job.regionDetail] || 0) + 1;
-    });
+    var counts = getCounts().byRegionDetail[region] || {};
     var names = Object.keys(counts).sort(function (a, b) { return a.localeCompare(b, "ko"); });
 
     var html = '<option value="">전체</option>';
@@ -227,41 +225,99 @@
     return isNaN(t) ? -Infinity : t;
   }
 
+  // 목록은 두 가지 방식으로 그립니다.
+  //  1) 기본: 매일 아침 전체 고용24 공고(약 2만 건)를 모아 둔 Supabase(mv_site_jobs)에 "지금 보여줄
+  //     24건"만 물어봅니다. 4.8MB짜리 전체 파일을 받지 않아 빠르고, 일자리 현황 리포트와 숫자가 같습니다.
+  //  2) Supabase에 닿지 않으면 예전처럼 content/*.json 전체를 받아 브라우저에서 거릅니다.
+  //  관리자가 직접 등록한 공고(content/jobs.json, ADMIN_JOBS)는 두 방식 모두 맨 앞에 보여줍니다.
+  var currentFilter = { region: "", jobs: null, regionDetail: "" };
+  var adminMatches = []; // 현재 조건에 맞는 관리자 등록 공고
+  var remoteLoaded = []; // Supabase에서 지금까지 받아온 공고
+  var remoteTotal = 0; // 현재 조건에 맞는 Supabase 공고 수
+  var listRequestSeq = 0; // 검색을 빠르게 바꿀 때 늦게 도착한 예전 응답을 버리기 위한 번호
+
+  function matchesFilter(job) {
+    var f = currentFilter;
+    return (!f.region || job.region === f.region) &&
+      (!f.regionDetail || job.regionDetail === f.regionDetail) &&
+      (!f.jobs || f.jobs.indexOf(job.job) !== -1);
+  }
+
   function renderVisiblePage() {
     if (!jobGrid) return;
-    var visible = currentFullList.slice(0, visibleCount);
+    var visible = REMOTE_STATS ? adminMatches.concat(remoteLoaded) : currentFullList.slice(0, visibleCount);
+    var total = REMOTE_STATS ? adminMatches.length + remoteTotal : currentFullList.length;
     lastFilteredJobs = visible;
     jobGrid.innerHTML = visible.map(jobCardHTML).join("");
 
     if (jobListStatus) {
-      jobListStatus.hidden = currentFullList.length === 0;
-      jobListStatus.textContent = "전체 " + currentFullList.length.toLocaleString("ko-KR") + "건 중 " +
+      jobListStatus.hidden = total === 0;
+      jobListStatus.textContent = "전체 " + total.toLocaleString("ko-KR") + "건 중 " +
         visible.length.toLocaleString("ko-KR") + "건 표시 중";
     }
-    if (jobListMoreWrap) jobListMoreWrap.hidden = visible.length >= currentFullList.length;
+    if (jobListMoreWrap) jobListMoreWrap.hidden = visible.length >= total;
+    if (jobEmpty) jobEmpty.hidden = total !== 0;
+  }
+
+  function fetchRemotePage(reset) {
+    var seq = ++listRequestSeq;
+    var f = currentFilter;
+    var params = new URLSearchParams({ select: "*", order: "datePosted.desc,id.desc" });
+    if (f.region) params.append("region", "eq." + f.region);
+    if (f.regionDetail) params.append("regionDetail", "eq." + f.regionDetail);
+    if (f.jobs) params.append("job", "in.(" + f.jobs.map(function (j) { return '"' + j + '"'; }).join(",") + ")");
+    var from = reset ? 0 : remoteLoaded.length;
+    if (jobListMoreBtn) jobListMoreBtn.disabled = true;
+    return fetch(SUPABASE_REST + "mv_site_jobs?" + params.toString(), {
+      headers: { apikey: SUPABASE_KEY, Range: from + "-" + (from + JOB_LIST_PAGE_SIZE - 1), Prefer: "count=exact" }
+    })
+      .then(function (res) {
+        if (!res.ok) throw new Error("mv_site_jobs " + res.status);
+        var range = res.headers.get("Content-Range") || ""; // 예: "0-23/12345"
+        return res.json().then(function (rows) { return { rows: rows, total: parseInt(range.split("/")[1], 10) }; });
+      })
+      .then(function (page) {
+        if (seq !== listRequestSeq) return; // 그 사이 다른 검색을 했으면 버림
+        remoteLoaded = reset ? page.rows : remoteLoaded.concat(page.rows);
+        remoteTotal = isNaN(page.total) ? remoteLoaded.length : page.total;
+        renderVisiblePage();
+      })
+      .catch(function () {
+        if (seq !== listRequestSeq) return;
+        if (jobListStatus) {
+          jobListStatus.hidden = false;
+          jobListStatus.textContent = "일자리 목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
+        }
+      })
+      .then(function () { if (jobListMoreBtn) jobListMoreBtn.disabled = false; });
   }
 
   function renderJobs(filterRegion, filterJob, filterRegionDetail) {
     if (!jobGrid) return;
     // filterJob은 직종 문자열 하나, 직종 배열(활동 강도 필터), 또는 빈 값일 수 있습니다.
-    var jobList = Array.isArray(filterJob) ? filterJob : (filterJob ? [filterJob] : null);
-    var filtered = JOBS.filter(function (job) {
-      var regionOk = !filterRegion || job.region === filterRegion;
-      var regionDetailOk = !filterRegionDetail || job.regionDetail === filterRegionDetail;
-      var jobOk = !jobList || jobList.indexOf(job.job) !== -1;
-      return regionOk && regionDetailOk && jobOk;
-    });
+    currentFilter = {
+      region: filterRegion || "",
+      jobs: Array.isArray(filterJob) ? filterJob : (filterJob ? [filterJob] : null),
+      regionDetail: filterRegionDetail || ""
+    };
+    if (REMOTE_STATS) {
+      adminMatches = ADMIN_JOBS.filter(matchesFilter).sort(function (a, b) { return jobSortTime(b) - jobSortTime(a); });
+      fetchRemotePage(true);
+      return;
+    }
+    var filtered = JOBS.filter(matchesFilter);
     filtered.sort(function (a, b) { return jobSortTime(b) - jobSortTime(a); });
-
     currentFullList = filtered;
     visibleCount = Math.min(JOB_LIST_PAGE_SIZE, filtered.length); // 새 검색이므로 처음 페이지부터 다시 보여줍니다.
     renderVisiblePage();
-
-    if (jobEmpty) jobEmpty.hidden = filtered.length !== 0;
   }
 
   if (jobListMoreBtn) {
     jobListMoreBtn.addEventListener("click", function () {
+      if (REMOTE_STATS) {
+        fetchRemotePage(false);
+        return;
+      }
       visibleCount = Math.min(visibleCount + JOB_LIST_PAGE_SIZE, currentFullList.length);
       renderVisiblePage();
     });
@@ -441,31 +497,62 @@
   /* ---------------- 현황 통계 (카테고리별/전체 일자리 건수) ----------------
      content/jobs.json에 등록된 실제 건수를 세어 표시합니다.
      관리자가 CMS에서 일자리를 추가/삭제하면 배포 후 이 숫자도 자동으로 바뀝니다. */
+  // 홈 화면 숫자. Supabase 요약(mv_site_job_stats)에 관리자 등록 공고를 더하고,
+  // 예비 방식(JSON 전체)일 때는 받은 목록에서 직접 셉니다.
+  function tally(list) {
+    var c = { total: list.length, newCount: 0, companies: {}, byJob: {}, byRegion: {}, byRegionDetail: {} };
+    list.forEach(function (j) {
+      if (j.isNew) c.newCount++;
+      if (j.company) c.companies[j.company] = true;
+      if (j.job) c.byJob[j.job] = (c.byJob[j.job] || 0) + 1;
+      if (j.region) c.byRegion[j.region] = (c.byRegion[j.region] || 0) + 1;
+      if (j.region && j.regionDetail) {
+        var d = c.byRegionDetail[j.region] = c.byRegionDetail[j.region] || {};
+        d[j.regionDetail] = (d[j.regionDetail] || 0) + 1;
+      }
+    });
+    return c;
+  }
+
+  function getCounts() {
+    if (!REMOTE_STATS) {
+      var all = tally(JOBS);
+      all.companyCount = Object.keys(all.companies).length;
+      return all;
+    }
+    var c = tally(ADMIN_JOBS);
+    var r = REMOTE_STATS;
+    function add(into, from) { Object.keys(from || {}).forEach(function (k) { into[k] = (into[k] || 0) + from[k]; }); }
+    add(c.byJob, r.by_job);
+    add(c.byRegion, r.by_region);
+    Object.keys(r.by_region_detail || {}).forEach(function (region) {
+      c.byRegionDetail[region] = c.byRegionDetail[region] || {};
+      add(c.byRegionDetail[region], r.by_region_detail[region]);
+    });
+    c.total += r.total;
+    c.newCount += r.new_count;
+    c.companyCount = Object.keys(c.companies).length + r.companies; // 관리자 등록 업체와 겹칠 수 있지만 몇 곳 안 됩니다
+    return c;
+  }
+
   function updateStats() {
+    var counts = getCounts();
     var totalEl = document.getElementById("statTotalJobs");
-    if (totalEl) totalEl.textContent = JOBS.length.toLocaleString("ko-KR") + "개";
+    if (totalEl) totalEl.textContent = counts.total.toLocaleString("ko-KR") + "개";
 
-    // 신규 일자리: 관리자가 CMS에서 "신규 표시"를 켠 채용정보 수
+    // 신규 일자리: 최근 3일 안에 올라온 공고(관리자 등록 공고는 "신규 표시"를 켠 것)
     var newEl = document.getElementById("statNewJobs");
-    if (newEl) {
-      var newCount = JOBS.filter(function (j) { return j.isNew; }).length;
-      newEl.textContent = newCount.toLocaleString("ko-KR") + "개";
-    }
+    if (newEl) newEl.textContent = counts.newCount.toLocaleString("ko-KR") + "개";
 
-    // 제휴 기관·기업: 등록된 일자리들의 company(기관/업체명)를 중복 제거해서 집계
+    // 제휴 기관·기업: 공고를 낸 기관/업체 수
     var partnersEl = document.getElementById("statPartners");
-    if (partnersEl) {
-      var companies = {};
-      JOBS.forEach(function (j) { if (j.company) companies[j.company] = true; });
-      var partnerCount = Object.keys(companies).length;
-      partnersEl.textContent = partnerCount.toLocaleString("ko-KR") + "곳";
-    }
+    if (partnersEl) partnersEl.textContent = counts.companyCount.toLocaleString("ko-KR") + "곳";
 
     // 건수가 많은 순으로 정렬해서 보여줍니다 (일자리 현황 리포트와 순서를 맞춤)
     var jobCardEntries = Array.prototype.slice.call(document.querySelectorAll(".category-card[data-job]")).map(function (card) {
       var job = card.getAttribute("data-job");
       var countEl = card.querySelector(".cat-count");
-      var count = job ? JOBS.filter(function (j) { return j.job === job; }).length : 0;
+      var count = job ? counts.byJob[job] || 0 : 0;
       if (countEl) {
         var label = job === "사회공헌" ? "활동" : "일자리";
         countEl.textContent = label + " " + count + "건";
@@ -484,7 +571,7 @@
       var region = card.getAttribute("data-region");
       var countEl = card.querySelector(".cat-count");
       if (!region || !countEl) return;
-      var count = JOBS.filter(function (j) { return j.region === region; }).length;
+      var count = counts.byRegion[region] || 0;
       countEl.textContent = "일자리 " + count + "건";
     });
 
@@ -493,14 +580,17 @@
       var countEl = card.querySelector(".cat-count");
       var entry = DIFFICULTY_MAP[key];
       if (!entry || !countEl) return;
-      var count = JOBS.filter(function (j) { return entry.jobs.indexOf(j.job) !== -1; }).length;
+      var count = entry.jobs.reduce(function (sum, j) { return sum + (counts.byJob[j] || 0); }, 0);
       countEl.textContent = "일자리 " + count + "건";
     });
   }
 
-  /* content/jobs.json = 관리자가 CMS로 직접 등록한 일자리
-     content/jobs-external.json = 워크넷 등 공공 API에서 자동으로 가져온 일자리 (아직 비어있을 수 있음)
-     둘을 합쳐서 보여줍니다. */
+  /* content/jobs.json = 관리자가 CMS로 직접 등록한 일자리 (항상 파일에서 읽음)
+     고용24 공고 = Supabase 요약(mv_site_job_stats)·목록(mv_site_jobs). 닿지 않으면
+     예전처럼 content/jobs-external.json 전체를 받아서 씁니다. */
+  var ADMIN_JOBS = [];
+  var REMOTE_STATS = null;
+
   function fetchJobsFile(path) {
     return fetch(path)
       .then(function (res) { return res.ok ? res.json() : { jobs: [] }; })
@@ -508,10 +598,21 @@
       .catch(function () { return []; });
   }
 
-  Promise.all([fetchJobsFile("/content/jobs.json"), fetchJobsFile("/content/jobs-external.json")])
+  function fetchRemoteStats() {
+    return fetch(SUPABASE_REST + "mv_site_job_stats?select=*", { headers: { apikey: SUPABASE_KEY } })
+      .then(function (res) { if (!res.ok) throw new Error("stats " + res.status); return res.json(); })
+      .then(function (rows) { if (!rows.length || !rows[0].total) throw new Error("stats empty"); return rows[0]; });
+  }
+
+  Promise.all([fetchJobsFile("/content/jobs.json"), fetchRemoteStats().catch(function () { return null; })])
     .then(function (results) {
-      var combined = results[0].concat(results[1]);
-      JOBS = combined.length ? combined : FALLBACK_JOBS;
+      ADMIN_JOBS = results[0];
+      REMOTE_STATS = results[1];
+      if (REMOTE_STATS) return;
+      return fetchJobsFile("/content/jobs-external.json").then(function (external) {
+        var combined = ADMIN_JOBS.concat(external);
+        JOBS = combined.length ? combined : FALLBACK_JOBS;
+      });
     })
     .catch(function () { JOBS = FALLBACK_JOBS; })
     .then(function () {
