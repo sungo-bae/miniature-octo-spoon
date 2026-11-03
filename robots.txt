@@ -3,3 +3,4 @@ Allow: /
 Disallow: /admin/
 
 Sitemap: https://silverjob.kr/sitemap.xml
+Sitemap: https://silverjob.kr/sitemap-jobs.xml

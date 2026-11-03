@@ -8,7 +8,7 @@
 
 import { readFileSync, writeFileSync, rmSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { SITE_URL, escapeHtml, jobRegionLabel, pageShell, collectValidJobs, jobShard, JOB_SHARD_DIR } from "../netlify/functions/lib/job-template.mjs";
+import { SITE_URL, escapeHtml, jobRegionLabel, pageShell, collectValidJobs, jobShard, JOB_SHARD_DIR, isIndexableJob } from "../netlify/functions/lib/job-template.mjs";
 
 const ROOT = process.cwd();
 const JOBS_DIR = join(ROOT, "jobs");
@@ -54,6 +54,18 @@ ${items}
 // 콘텐츠로 비칠 위험이 있습니다(실제로 이게 애드센스 심사에서 문제가 됐을 가능성이 큽니다).
 // 해당 페이지들에는 noindex도 걸려있어(job-template.mjs 참고), 여기서 빼는 것과 함께
 // "실버잡이 직접 쓴 콘텐츠"만 색인 대상으로 남도록 합니다.
+// 검색에 여는 공고(isIndexableJob)만 담은 사이트맵. 공고 페이지의 noindex 기준과 같아서, 사이트맵에
+// 있는 주소는 모두 색인 가능한 페이지입니다. 매일 아침 배포 때 새로 만듭니다.
+function buildJobsSitemap(entries) {
+  const urls = entries
+    .filter(({ job }) => isIndexableJob(job))
+    .map(({ job, slug }) => {
+      const lastmod = job.datePosted || job.postedDate || "";
+      return `  <url>\n    <loc>${SITE_URL}/jobs/${slug}.html</loc>\n${lastmod ? `    <lastmod>${lastmod}</lastmod>\n` : ""}  </url>`;
+    });
+  return { count: urls.length, xml: `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>\n` };
+}
+
 function buildSitemap() {
   const staticUrls = [
     { loc: "/", changefreq: "daily", priority: "1.0" },
@@ -149,6 +161,9 @@ async function main() {
   mkdirSync(JOBS_DIR, { recursive: true });
   writeFileSync(join(JOBS_DIR, "index.html"), jobIndexPage(entries), "utf-8");
   writeFileSync(join(ROOT, "sitemap.xml"), buildSitemap(), "utf-8");
+  const jobsSitemap = buildJobsSitemap(entries);
+  writeFileSync(join(ROOT, "sitemap-jobs.xml"), jobsSitemap.xml, "utf-8");
+  console.log(`generate-job-pages: 검색에 여는 공고 ${jobsSitemap.count}건 (sitemap-jobs.xml)`);
   writeJobShards(entries, (externalJobs.syncedAt || adminJobs.syncedAt || "").slice(0, 10));
 
   // /report.html 은 더 이상 여기서 만들지 않습니다. 매일 아침 전체 공고로 계산하는
