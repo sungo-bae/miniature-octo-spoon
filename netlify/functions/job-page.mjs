@@ -111,6 +111,25 @@ ${sampleHtml}
   });
 }
 
+// 빌드 때 만든 조각 파일에 없는 공고는, 매일 아침 전체 고용24 공고를 모아 두는 Supabase
+// (mv_site_jobs, 사이트 JSON과 같은 모양)에서 찾습니다. 홈 화면 목록이 이 자료를 쓰므로,
+// 목록에서 연 공고의 상세 페이지도 여기서 찾아야 링크가 끊기지 않습니다.
+const SUPABASE_REST = "https://idngidaxescxuyjzirob.supabase.co/rest/v1/";
+const SUPABASE_KEY = "sb_publishable_hGMZ7IU3qZZc3jGzUP1ySQ_h1eRn7m0"; // 공개(publishable) 키, 읽기 전용
+
+async function fetchSupabaseJob(slug) {
+  try {
+    const url = `${SUPABASE_REST}mv_site_jobs?select=*&slug=eq.${encodeURIComponent(slug)}&limit=1`;
+    const res = await fetch(url, { headers: { apikey: SUPABASE_KEY }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    if (!res.ok) return null;
+    const rows = await res.json();
+    return rows[0] || null;
+  } catch (err) {
+    console.error("job-page: Supabase 조회 실패:", err && err.message ? err.message : err);
+    return null;
+  }
+}
+
 export default async (req) => {
   const url = new URL(req.url);
   // netlify.toml의 리다이렉트가 /jobs/* 요청을 이 함수로 그대로 돌려보내는데,
@@ -122,7 +141,12 @@ export default async (req) => {
   console.log(`job-page: 요청 url=${req.url} pathname=${url.pathname} slug=${JSON.stringify(slug)}`);
 
   const { jobs, fallbackDate } = slug ? await loadShard(slug) : { jobs: {}, fallbackDate: "" };
-  const job = Object.prototype.hasOwnProperty.call(jobs, slug) ? jobs[slug] : null;
+  let job = Object.prototype.hasOwnProperty.call(jobs, slug) ? jobs[slug] : null;
+  let postedDate = fallbackDate;
+  if (!job && /^job-[0-9a-f]{8}$/.test(slug)) {
+    job = await fetchSupabaseJob(slug);
+    if (job) postedDate = job.datePosted || fallbackDate;
+  }
   console.log(`job-page: slug=${slug} found=${!!job}`);
 
   if (!job) {
@@ -133,7 +157,7 @@ export default async (req) => {
     });
   }
 
-  return new Response(jobDetailPage(job, slug, fallbackDate), {
+  return new Response(jobDetailPage(job, slug, postedDate), {
     status: 200,
     headers: {
       "Content-Type": "text/html; charset=utf-8",
