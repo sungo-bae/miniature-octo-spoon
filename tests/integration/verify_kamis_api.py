@@ -115,10 +115,13 @@ def main() -> None:
         if not records:
             print("결과가 0건입니다 — 기간을 늘리거나 다른 품목코드로 재시도해보세요.")
         for r in records:
+            # unit_sz(단위크기)를 꼭 같이 보여준다 — 예: unit="kg", unit_sz="20"이면
+            # "가격 70,000원/kg"이 아니라 "70,000원/kg*20"(20kg 포대당 가격)이라는
+            # 뜻이다. unit_sz를 빼고 보이면 kg당 단가로 오해하기 쉽다.
             print(
                 f"  {r.exmn_ymd} | {r.item_name}({r.item_code}) {r.variety_name} | "
-                f"{r.market_name} | {r.se_name} | 가격 {r.price:,.0f}원/{r.unit} | "
-                f"환산가격(참고용, 단위에 따라 원가격과 같을 수 있음) {r.converted_price:,.0f}원"
+                f"{r.market_name} | {r.se_name} | 가격 {r.price:,.0f}원/({r.unit}*{r.unit_size}) | "
+                f"환산가격(참고용, 단위에 따라 원가격과 같거나 신뢰 불가할 수 있음) {r.converted_price:,.0f}원"
             )
         print(f"\n총 {len(records)}건 파싱 성공.")
     except KamisAPIError as exc:
