@@ -9,9 +9,21 @@ End Point: https://apis.data.go.kr/B552845/perDay/price
 (공식 API 명세 "일별 도,소매 가격정보 API명세 및 관련 코드 정보.zip"
 문서를 그대로 따랐다 — 2026-11-03 사용자가 실제 신청·확인한 명세서
 기준이며, holiday_api.py/weather_api.py와 동일한 data.go.kr 표준
-response.header/response.body 응답 포맷을 전제로 작성했다. 단, 실제
-API 호출 자체는 샌드박스 네트워크 제한으로 아직 검증하지 못했다 —
-docs/algorithm_specification/market_price_features.md "알려진 한계" 참고.
+response.header/response.body 응답 포맷을 전제로 작성했다. 2026-11-03
+사용자가 실제 서비스키로 호출(tests/integration/verify_kamis_api.py)해
+이 응답 봉투 구조가 맞다는 것을 확인했다 — 배추(품목코드 211) 468건이
+오류 없이 파싱됨.
+
+단, 그 실호출로 두 가지가 확인됐다 (docs/algorithm_specification/
+market_price_features.md "알려진 한계" 참고):
+  1. exmn_dd_cnvs_prc는 "포기" 등 개수 단위 품목에서는 kg 환산이 되지
+     않고 exmn_dd_prc와 동일한 값을 반환한다 — 무게 단위 품목에서만
+     진짜 kg 환산값일 가능성이 높다. 품목 간 가격을 직접 비교하려면
+     unit/unit_size를 반드시 함께 확인해야 한다.
+  2. vrty_cd(품종코드)를 지정하지 않으면 서로 다른 품종(예: 여름
+     고랭지배추/가을배추)이 한 품목코드 아래 섞여서 나온다 — 같은 날짜
+     데이터를 그대로 평균 내면 품종 구성비 변화를 가격 변동으로
+     착각할 수 있다.
 
 연구개발계획서 3.2절 A2 모듈 입력 피처로, 원재료성 농수산물의 일별
 소매/도매 가격을 "가격 급등락" 신호로 활용하기 위한 외부 데이터
@@ -41,13 +53,19 @@ class MarketPriceRecord:
     item_code: str
     item_name: str
     category_code: str
+    variety_code: str  # 품종코드 (vrty_cd)
+    variety_name: str
     se_code: str  # 구분코드 (01=소매, 02=중도매, 03=친환경농산물 등)
     se_name: str
     market_name: str
     unit: str
     unit_size: str
     price: float  # exmn_dd_prc: 조사일가격 (unit/unit_size 기준 원단위)
-    price_per_kg: float  # exmn_dd_cnvs_prc: 조사일 kg환산가격 (품목 간 비교용)
+    converted_price: float
+    # exmn_dd_cnvs_prc: "환산가격". 실호출로 확인한 바, 포기 등 개수 단위
+    # 품목에서는 price와 동일한 값이 온다 — kg 환산이 항상 적용되는 게
+    # 아니다. 품목 간 비교에 그대로 쓰면 안 되고, unit/unit_size를 같이
+    # 확인해야 한다 (모듈 docstring 참고).
 
 
 class KamisAPIError(RuntimeError):
@@ -81,6 +99,7 @@ class KamisClient:
         end: date,
         se_code: Optional[str] = "01",  # 기본값: 01=소매
         sgg_code: Optional[str] = None,  # 시군구코드(지역). None이면 전체 지역.
+        vrty_code: Optional[str] = None,  # 품종코드. None이면 모든 품종이 섞여서 온다.
     ) -> list[MarketPriceRecord]:
         """start~end(포함) 구간의 품목 일별 가격을 전 페이지에 걸쳐 조회한다.
 
@@ -89,6 +108,9 @@ class KamisClient:
             category_code: 부류코드 (예: "200"=채소류).
             se_code: 구분코드. "01"=소매, "02"=중도매, "03"=친환경농산물 등.
             sgg_code: 시군구코드 (예: "1101"=서울). 미지정 시 전국 전체 응답.
+            vrty_code: 품종코드 (코드정보.xlsx '품종코드' 시트 참고). 지정하지
+                않으면 같은 품목의 여러 품종(예: 배추의 여름/가을 품종)이
+                섞여서 반환된다 — 시계열 비교용으로는 지정을 권장한다.
         """
         page_no = 1
         records: list[MarketPriceRecord] = []
@@ -96,7 +118,7 @@ class KamisClient:
 
         while (total_count is None or len(records) < total_count) and page_no <= MAX_PAGES:
             params = self._build_params(
-                item_code, category_code, start, end, se_code, sgg_code, page_no
+                item_code, category_code, start, end, se_code, sgg_code, vrty_code, page_no
             )
             data = self._get_with_retry(params)
             body = data.get("response", {}).get("body", {})
@@ -119,6 +141,7 @@ class KamisClient:
         end: date,
         se_code: Optional[str],
         sgg_code: Optional[str],
+        vrty_code: Optional[str],
         page_no: int,
     ) -> dict:
         params = {
@@ -135,6 +158,8 @@ class KamisClient:
             params["cond[se_cd::EQ]"] = se_code
         if sgg_code:
             params["cond[sgg_cd::EQ]"] = sgg_code
+        if vrty_code:
+            params["cond[vrty_cd::EQ]"] = vrty_code
         return params
 
     def _get_with_retry(self, params: dict) -> dict:
@@ -164,13 +189,15 @@ def _parse_item(raw: dict) -> MarketPriceRecord:
         item_code=str(raw.get("item_cd", "")),
         item_name=raw.get("item_nm", ""),
         category_code=str(raw.get("ctgry_cd", "")),
+        variety_code=str(raw.get("vrty_cd", "")),
+        variety_name=raw.get("vrty_nm", ""),
         se_code=str(raw.get("se_cd", "")),
         se_name=raw.get("se_nm", ""),
         market_name=raw.get("mrkt_nm", ""),
         unit=raw.get("unit", ""),
         unit_size=raw.get("unit_sz", ""),
         price=_to_float(raw.get("exmn_dd_prc")),
-        price_per_kg=_to_float(raw.get("exmn_dd_cnvs_prc")),
+        converted_price=_to_float(raw.get("exmn_dd_cnvs_prc")),
     )
 
 

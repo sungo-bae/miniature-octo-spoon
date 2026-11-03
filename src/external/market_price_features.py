@@ -23,19 +23,30 @@ def build_market_price_series(
     client: Optional[KamisClient] = None,
     se_code: str = "01",
     sgg_code: Optional[str] = None,
+    vrty_code: Optional[str] = None,
 ) -> pd.DataFrame:
     """start~end(포함) 구간의 품목 일별 가격 테이블을 만든다.
 
     KAMIS는 공휴일·주말 등 비거래일 데이터를 비워서 줄 수 있으므로,
     반환값은 실제 거래일만 포함한다 — 달력 전체를 채우는 전진채움(ffill)은
-    make_market_price_features()에서 수행한다. 가격은 품목 간 비교가
-    가능한 kg환산가격(price_per_kg)을 사용한다.
+    make_market_price_features()에서 수행한다.
+
+    가격은 원시 가격(exmn_dd_prc)을 사용한다. 실호출 검증(2026-11-03,
+    kamis_api.py 모듈 docstring 참고) 결과 "kg환산가격"(exmn_dd_cnvs_prc)이
+    개수 단위(예: 배추의 "포기") 품목에서는 환산되지 않고 원시 가격과
+    동일하게 나와, 품목 간 비교용으로 신뢰할 수 없었다. 같은 item_code+
+    se_code 조합은 단위(unit)가 보통 고정이므로, 단일 품목의 시계열
+    피처로 쓰는 용도에는 원시 가격으로 충분하다 — 서로 다른 품목의
+    가격을 직접 비교하려면 unit/unit_size를 반드시 함께 확인해야 한다.
 
     Args:
         item_code: 품목코드 (예: "211"=배추).
         category_code: 부류코드 (예: "200"=채소류).
         se_code: 구분코드. "01"=소매(기본값), "02"=중도매, "03"=친환경농산물.
         sgg_code: 시군구코드 (예: "1101"=서울). 미지정 시 전국 전체.
+        vrty_code: 품종코드. 지정을 강력히 권장한다 — 미지정 시 서로 다른
+            품종(예: 배추의 여름/가을 품종)이 섞여 가격이 들쭉날쭉해진다
+            (실호출로 확인됨).
 
     반환 컬럼: date, price
     """
@@ -47,18 +58,21 @@ def build_market_price_series(
         end=end,
         se_code=se_code,
         sgg_code=sgg_code,
+        vrty_code=vrty_code,
     )
     if not records:
         return pd.DataFrame(columns=["date", "price"])
     raw = pd.DataFrame(
         {
             "date": [pd.Timestamp(r.exmn_ymd) for r in records],
-            "price": [r.price_per_kg for r in records],
+            "price": [r.price for r in records],
         }
     )
-    # sgg_code를 지정하지 않으면 지역별 여러 시장이 같은 날짜로 섞여 올 수 있다.
-    # make_market_price_features()의 reindex가 날짜 인덱스 유일성을 요구하므로
-    # 같은 날짜는 평균으로 합친다.
+    # sgg_code/vrty_code를 지정하지 않으면 여러 지역·품종이 같은 날짜로
+    # 섞여 올 수 있다. make_market_price_features()의 reindex가 날짜
+    # 인덱스 유일성을 요구하므로 같은 날짜는 평균으로 합친다 — 다만 이
+    # 평균 자체가 품종 구성비 변화를 가격 변동으로 착각하게 할 수 있으니,
+    # 가능하면 호출 시 vrty_code를 지정해 평균이 필요 없게 하는 것이 좋다.
     return raw.groupby("date", as_index=False)["price"].mean().sort_values("date").reset_index(drop=True)
 
 

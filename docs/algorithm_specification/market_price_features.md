@@ -34,11 +34,13 @@ aT 한국농수산식품유통공사의 "일별 도,소매 가격정보" API에�
   `cond[item_cd::EQ]`(품목코드, 필수), 선택: `cond[se_cd::EQ]`(구분코드: 01=소매/02=중도매/03=친환경),
   `cond[sgg_cd::EQ]`(시군구코드/지역), `cond[vrty_cd::EQ]`(품종코드), `cond[grd_cd::EQ]`(등급코드), `cond[mrkt_cd::EQ]`(시장코드)
 - 응답: `response.header.{resultCode,resultMsg}`, `response.body.{numOfRows,pageNo,totalCount,items.item[]}`
-  (holiday_api.py와 동일한 data.go.kr 표준 응답 포맷 — 이 부분은 문서에 명시되어 있지 않아
-  동일 포털의 다른 API 관례를 따른 추정이다. 아래 "알려진 한계" 참고)
-- 응답 필드: `exmn_ymd`(조사일자), `item_cd`/`item_nm`, `ctgry_cd`, `se_cd`/`se_nm`,
-  `mrkt_nm`(시장명), `unit`/`unit_sz`(단위), `exmn_dd_prc`(조사일가격, 단위 기준 원),
-  `exmn_dd_cnvs_prc`(조사일 kg환산가격 — 품목 간 비교 가능한 정규화 가격)
+  (holiday_api.py와 동일한 data.go.kr 표준 응답 포맷이라고 추정했던 것을
+  2026-11-03 실호출로 **확인 완료** — 아래 "실호출 검증 결과" 참고)
+- 응답 필드: `exmn_ymd`(조사일자), `item_cd`/`item_nm`, `vrty_cd`/`vrty_nm`(품종),
+  `ctgry_cd`, `se_cd`/`se_nm`, `mrkt_nm`(시장명), `unit`/`unit_sz`(단위),
+  `exmn_dd_prc`(조사일가격, 단위 기준 원), `exmn_dd_cnvs_prc`("환산가격" —
+  **실호출 결과 개수 단위 품목에서는 kg 환산이 안 되는 것으로 확인**,
+  아래 "실호출 검증 결과" 참고)
 
 ### 코드표 (코드정보.xlsx에서 확인, 예시)
 
@@ -60,29 +62,52 @@ aT 한국농수산식품유통공사의 "일별 도,소매 가격정보" API에�
    (API→DataFrame 빌더)와 `make_market_price_features()`(기존 피처
    DataFrame에 병합) 두 함수로 나눠, `make_calendar_lag_features`의 패턴과
    일관성을 유지했다.
-2. **가격은 kg환산가격(exmn_dd_cnvs_prc)을 사용한다.** 품목마다 `unit`/`unit_sz`
-   (예: "10키로", "1키로")가 달라 원시 가격(exmn_dd_prc)은 품목 간 비교가
-   안 된다. kg 환산값을 써야 "가격 피처"로서 의미가 있다.
+2. **가격은 원시 가격(exmn_dd_prc)을 사용한다.** 당초 kg환산가격
+   (exmn_dd_cnvs_prc)을 쓰려고 했으나, 실호출 결과 개수 단위(포기 등)
+   품목에서는 환산이 안 돼 원시 가격과 같은 값이 나왔다 (아래 "실호출
+   검증 결과" 참고). 같은 item_code+se_code 조합은 단위가 보통 고정이라
+   단일 품목 시계열로는 원시 가격으로 충분하다 — 서로 다른 품목을 직접
+   비교하려면 unit/unit_size를 같이 확인해야 한다.
 3. **페이지네이션을 자동 처리한다.** `numOfRows` 최대 1000건 제한이 있어,
    `fetch_period_prices()`는 `totalCount`를 보고 필요한 만큼 페이지를 순회한다
    (무한루프 방지로 `MAX_PAGES=50` 안전장치).
-4. **지역(sgg_code) 미지정 시 여러 시장 데이터가 섞여 올 수 있다.**
-   `build_market_price_series()`는 같은 날짜에 여러 행이 오면 평균으로
-   합친다(`groupby("date").mean()`) — `make_market_price_features()`의
-   `reindex()`가 날짜 인덱스 유일성을 요구하기 때문이다. 특정 지역만
-   보고 싶다면 `sgg_code`를 지정하면 된다(예: "1101"=서울).
+4. **지역(sgg_code)·품종(vrty_code) 미지정 시 여러 시장/품종이 섞여 올 수
+   있다.** `build_market_price_series()`는 같은 날짜에 여러 행이 오면
+   평균으로 합친다(`groupby("date").mean()`) — `make_market_price_features()`의
+   `reindex()`가 날짜 인덱스 유일성을 요구하기 때문이다. 다만 이 평균 자체가
+   품종 구성비 변화를 가격 변동으로 착각하게 할 수 있어(실호출로 확인됨),
+   가능하면 `sgg_code`·`vrty_code`를 지정해 평균이 필요 없게 하는 것을
+   권장한다.
 5. **비거래일은 전진채움(ffill), 단 최대 7일로 제한.** (이전 버전과 동일.)
 6. **가격 피처: 수준값 + 지연값 + 7일 변화율.** `price`, `price_lag_{1,7,14}`,
    `price_change_pct_7d`를 기본 제공한다.
 
+## 실호출 검증 결과 (2026-11-03)
+
+사용자가 로컬 환경에서 실제 서비스키로 `tests/integration/verify_kamis_api.py`를
+실행해 다음을 확인했다 (배추/품목코드 211, 소매, 최근 2주, 468건):
+
+- **응답 봉투 구조(response.header/body) 가정이 맞았다.** 468건 모두
+  오류 없이 파싱됐고, `totalCount`와 실제 파싱 건수가 일치했다.
+- **`exmn_dd_cnvs_prc`("환산가격")는 개수 단위(포기 등) 품목에서 kg
+  환산이 되지 않는다.** 468건 전부 `exmn_dd_prc`(원가격)와 동일한 값이
+  나왔다. 당초 "품목 간 비교 가능한 kg환산가격"이라고 가정했던 게
+  틀렸다 — `kamis_api.py`/`market_price_features.py`를 원시 가격(price)
+  기준으로 수정했고, 필드명도 `price_per_kg`에서 `converted_price`로
+  바꿔 오해의 소지를 줄였다. 무게 단위 품목(예: kg 단위로 거래되는
+  품목)에서는 실제로 환산되는지 아직 확인 못 했다 — 다른 단위 품목으로
+  추가 검증이 필요하다.
+- **품종(vrty_cd)을 지정하지 않으면 여러 품종이 섞여서 온다.** 배추의
+  경우 여름(고랭지)과 가을 품종이 같은 품목코드 아래 섞여 나와, 날짜별
+  평균을 내면 품종 구성비 변화를 가격 변동으로 착각할 수 있었다.
+  `fetch_period_prices()`/`build_market_price_series()`에 `vrty_code`
+  파라미터를 추가했다 — 실사용 시 지정을 권장한다.
+
 ## 알려진 한계 (TODO) — 중요
 
-- **응답 봉투(response.header/body) 구조는 공식 명세서에 명시되어 있지
-  않고, holiday_api.py 등 같은 포털 다른 API의 관례를 따른 추정이다.**
-  요청 파라미터(`cond[...]`, `serviceKey` 등)는 공식 문서 그대로이므로
-  신뢰도가 높지만, 응답 최상위 구조가 다르면(예: `response` 래퍼가 없는
-  경우) 파싱이 실패한다. **실사용 전 반드시 한 번 실제 호출해 최상위
-  JSON 구조를 확인해야 한다.**
+- **무게 단위(kg) 품목에서 `converted_price`가 실제로 환산되는지는
+  아직 확인하지 못했다.** 개수 단위(포기) 품목만 검증했다 — 다른 품목
+  (예: kg 단위로 거래되는 곡물류)으로 추가 검증이 필요하다.
 - **"가격 급등락이 수요에 선행한다"는 가설 자체가 검증되지 않았다.**
   이 피처를 모델에 넣었을 때 실제로 WAPE가 개선되는지는 확인된 바 없다.
   `model_selector.py`에 통합하기 전 `experiments/`에 litmus 테스트와
@@ -97,6 +122,8 @@ aT 한국농수산식품유통공사의 "일별 도,소매 가격정보" API에�
 ## 테스트
 
 `tests/unit/test_kamis_api.py`, `test_market_price_features.py`에서 외부
-HTTP 호출을 모킹해 검증한다 (페이지네이션, 중복 날짜 평균 처리 포함).
-모킹 데이터는 공식 요청 명세 + 추정 응답 봉투를 기준으로 하므로, 실제
-API 응답의 최상위 구조가 다르면 이 테스트들도 함께 다시 작성해야 한다.
+HTTP 호출을 모킹해 검증한다 (페이지네이션, 품종코드 필터, 중복 날짜 평균
+처리 포함). 모킹 데이터는 2026-11-03 실호출로 확인한 실제 스키마를
+반영했다. `tests/integration/verify_kamis_api.py`는 실제 서비스키로
+직접 호출해 확인하는 수동 스크립트로, 다른 품목(특히 무게 단위 품목)을
+검증할 때 품목코드만 바꿔서 재사용할 수 있다.

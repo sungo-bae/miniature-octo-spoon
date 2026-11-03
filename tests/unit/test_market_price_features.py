@@ -58,37 +58,41 @@ def test_make_market_price_features_forward_fills_missing_trading_days():
     assert out["price"].iloc[3] == 110.0  # 1/4: 실제 거래일
 
 
-def _record(exmn_ymd, price_per_kg, price=None):
+def _record(exmn_ymd, price, converted_price=None):
     return MarketPriceRecord(
         exmn_ymd=exmn_ymd,
         item_code="211",
         item_name="배추",
         category_code="200",
+        variety_code="01",
+        variety_name="가을배추",
         se_code="01",
         se_name="소매",
         market_name="서울",
-        unit="10키로",
-        unit_size="10",
-        price=price if price is not None else price_per_kg * 10,
-        price_per_kg=price_per_kg,
+        unit="포기",
+        unit_size="1",
+        price=price,
+        converted_price=converted_price if converted_price is not None else price,
     )
 
 
-def test_build_market_price_series_uses_kg_converted_price():
+def test_build_market_price_series_uses_raw_price():
+    # 실호출 검증 결과 converted_price(kg환산가격)가 개수단위 품목에서는
+    # 신뢰할 수 없어, 원시 가격(price)을 쓴다.
     fake_client = MagicMock()
     fake_client.fetch_period_prices.return_value = [
-        _record(date(2026, 1, 1), 850.0),
-        _record(date(2026, 1, 2), 900.0),
+        _record(date(2026, 1, 1), 8500.0),
+        _record(date(2026, 1, 2), 9000.0),
     ]
 
     out = build_market_price_series(
         item_code="211", category_code="200", start=date(2026, 1, 1), end=date(2026, 1, 2), client=fake_client
     )
 
-    assert list(out["price"]) == [850.0, 900.0]
+    assert list(out["price"]) == [8500.0, 9000.0]
     fake_client.fetch_period_prices.assert_called_once_with(
         item_code="211", category_code="200", start=date(2026, 1, 1), end=date(2026, 1, 2),
-        se_code="01", sgg_code=None,
+        se_code="01", sgg_code=None, vrty_code=None,
     )
 
 

@@ -30,6 +30,13 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, REPO_ROOT)
 
 
+def _redact_service_key(url: str) -> str:
+    """콘솔/로그에 서비스키가 평문으로 남지 않도록 쿼리스트링에서 가린다."""
+    import re
+
+    return re.sub(r"(serviceKey=)[^&]+", r"\1***REDACTED***", url)
+
+
 def _load_dotenv(path: str) -> None:
     """python-dotenv 의존성 없이 .env를 아주 단순하게 읽어 os.environ에 채운다."""
     if not os.path.exists(path):
@@ -80,7 +87,7 @@ def main() -> None:
     try:
         resp = requests.get(BASE_URL, params=raw_params, timeout=10)
         print(f"HTTP 상태코드: {resp.status_code}")
-        print(f"요청 URL: {resp.url}")
+        print(f"요청 URL: {_redact_service_key(resp.url)}")
         try:
             parsed = resp.json()
             print(json.dumps(parsed, ensure_ascii=False, indent=2)[:3000])
@@ -104,9 +111,9 @@ def main() -> None:
             print("결과가 0건입니다 — 기간을 늘리거나 다른 품목코드로 재시도해보세요.")
         for r in records:
             print(
-                f"  {r.exmn_ymd} | {r.item_name}({r.item_code}) | {r.market_name} | "
-                f"{r.se_name} | 가격 {r.price:,.0f}원/{r.unit} | "
-                f"kg환산 {r.price_per_kg:,.0f}원/kg"
+                f"  {r.exmn_ymd} | {r.item_name}({r.item_code}) {r.variety_name} | "
+                f"{r.market_name} | {r.se_name} | 가격 {r.price:,.0f}원/{r.unit} | "
+                f"환산가격(참고용, 단위에 따라 원가격과 같을 수 있음) {r.converted_price:,.0f}원"
             )
         print(f"\n총 {len(records)}건 파싱 성공.")
     except KamisAPIError as exc:
