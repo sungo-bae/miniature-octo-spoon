@@ -14,6 +14,43 @@
     kakaoLinks[ki].href = KAKAO_CHANNEL_URL || "#";
   }
 
+  /* ---------------- 지원 버튼 클릭 수 ----------------
+     "지원하기"·"카카오톡으로 문의하기"를 누르면 어떤 공고·지역·직종에서 눌렸는지만 Supabase에 기록합니다
+     (이름·연락처 등 개인정보는 보내지 않습니다). 공개 키는 이 표에 행을 추가만 할 수 있고 읽을 수 없습니다.
+     기록이 실패해도 버튼 동작에는 영향이 없습니다. */
+  var CLICK_URL = "https://idngidaxescxuyjzirob.supabase.co/rest/v1/apply_clicks";
+  var CLICK_KEY = "sb_publishable_hGMZ7IU3qZZc3jGzUP1ySQ_h1eRn7m0";
+
+  function cut40(value) {
+    return value ? String(value).slice(0, 40) : null;
+  }
+
+  function markApplyButton(el, page, job) {
+    el.setAttribute("data-apply-track", page);
+    el.setAttribute("data-slug", jobSlug(job));
+    el.setAttribute("data-region", job.region || "");
+    el.setAttribute("data-category", job.job || "");
+  }
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest("[data-apply-track]") : null;
+    if (!btn || !window.fetch) return;
+    try {
+      fetch(CLICK_URL, {
+        method: "POST",
+        keepalive: true, // 새 창이 열리거나 페이지를 떠나도 요청이 끝까지 가도록
+        headers: { apikey: CLICK_KEY, "Content-Type": "application/json", Prefer: "return=minimal" },
+        body: JSON.stringify({
+          job_slug: cut40(btn.getAttribute("data-slug")),
+          channel: btn.hasAttribute("data-external-apply") ? "external" : "kakao",
+          page: btn.getAttribute("data-apply-track"),
+          region: cut40(btn.getAttribute("data-region")),
+          category: cut40(btn.getAttribute("data-category"))
+        })
+      }).catch(function () {});
+    } catch (err) {}
+  });
+
   /* ---------------- 글자 크기 조절 ---------------- */
   var root = document.documentElement;
   var FONT_STEPS = [1, 1.12, 1.25];
@@ -306,6 +343,7 @@
         contactBtn.rel = "noopener";
         contactBtn.removeAttribute("data-external-apply");
       }
+      markApplyButton(contactBtn, "modal", job);
     }
 
     jobModalLastFocused = document.activeElement;

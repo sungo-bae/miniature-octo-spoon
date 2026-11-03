@@ -271,7 +271,7 @@ export function jobDetailPage(job, slug, fallbackDate) {
       ${job.source ? `<p style="color:var(--color-text-muted); font-size:.9rem; margin-top:24px;">출처: ${escapeHtml(job.source)}</p>` : ""}
 
       <div style="margin-top:28px;">
-        <a href="${escapeHtml(applyHref)}" class="btn btn-primary btn-lg"${job.applyUrl ? ' data-external-apply="1"' : ""} target="_blank" rel="noopener">${applyLabel}</a>
+        <a href="${escapeHtml(applyHref)}" class="btn btn-primary btn-lg"${job.applyUrl ? ' data-external-apply="1"' : ""} data-apply-track="detail" data-slug="${escapeHtml(slug)}" data-region="${escapeHtml(job.region || "")}" data-category="${escapeHtml(job.job || "")}" target="_blank" rel="noopener">${applyLabel}</a>
       </div>
 `;
 
