@@ -144,7 +144,9 @@ export default async () => {
           }
         }
       ],
-      message: `chore: sync welfare info from 지자체복지서비스 API (automated, ${services.length}건)`
+      // [skip netlify]: 이 커밋만으로는 배포하지 않습니다. 매일 아침 수집이 끝나면 데이터 파이프라인이
+      // 빌드 훅으로 하루 한 번 배포하므로, 그때 함께 반영됩니다(Netlify 배포 1회 = 15크레딧).
+      message: `chore: sync welfare info from 지자체복지서비스 API (automated, ${services.length}건) [skip netlify]`
     });
 
     console.log(`sync-welfare-info: ${services.length}건 동기화 완료`);

@@ -1,4 +1,4 @@
-// 배포될 때마다(코드 푸시든, work24 자동 동기화 커밋이든, 관리자 CMS 등록이든) 실행되는
+// 배포될 때마다(코드 푸시든, 매일 아침 데이터 파이프라인의 빌드 훅이든, 관리자 CMS 등록이든) 실행되는
 // 빌드 스크립트입니다. 채용공고 1건당 상세페이지(/jobs/<slug>.html, JobPosting
 // JSON-LD 포함)는 더 이상 여기서 미리 만들지 않습니다 — 수천 건을 매 배포마다 전부
 // 파일로 쓰면 빌드가 무거워져서 Netlify 빌드 크레딧을 많이 썼습니다. 대신
@@ -100,9 +100,42 @@ function writeJobShards(entries, fallbackDate) {
   }
 }
 
-function main() {
+// 고용24 공고는 매일 아침 전체를 받는 데이터 파이프라인의 Supabase(mv_site_jobs, 예전
+// jobs-external.json과 같은 모양)에서 읽습니다. 홈 목록이 같은 자료를 쓰므로 공고 목록 페이지와
+// 상세페이지 조각(job-data)도 같은 날 같은 공고로 맞춰집니다. 못 읽으면 저장소의 예전 파일을 씁니다.
+const SUPABASE_REST = "https://idngidaxescxuyjzirob.supabase.co/rest/v1/";
+const SUPABASE_KEY = "sb_publishable_hGMZ7IU3qZZc3jGzUP1ySQ_h1eRn7m0"; // 공개(publishable) 키, 읽기 전용
+const PAGE = 1000;
+
+async function readSupabaseJobs() {
+  const jobs = [];
+  for (let from = 0; ; from += PAGE) {
+    const res = await fetch(`${SUPABASE_REST}mv_site_jobs?select=*&order=id`, {
+      headers: { apikey: SUPABASE_KEY, Range: `${from}-${from + PAGE - 1}` },
+      signal: AbortSignal.timeout(20000)
+    });
+    if (!res.ok) throw new Error(`mv_site_jobs ${res.status}`);
+    const batch = await res.json();
+    jobs.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  if (!jobs.length) throw new Error("mv_site_jobs가 비어 있습니다");
+  const stats = await fetch(`${SUPABASE_REST}mv_site_job_stats?select=updated_at`, { headers: { apikey: SUPABASE_KEY } })
+    .then((r) => (r.ok ? r.json() : []))
+    .catch(() => []);
+  return { jobs, syncedAt: stats[0] && stats[0].updated_at };
+}
+
+async function main() {
   const adminJobs = readJobsFile(join(ROOT, "content", "jobs.json"));
-  const externalJobs = readJobsFile(join(ROOT, "content", "jobs-external.json"));
+  let externalJobs;
+  try {
+    externalJobs = await readSupabaseJobs();
+    console.log(`generate-job-pages: Supabase에서 고용24 공고 ${externalJobs.jobs.length}건을 읽었습니다.`);
+  } catch (err) {
+    console.warn("generate-job-pages: Supabase를 읽지 못해 content/jobs-external.json을 씁니다.", err.message);
+    externalJobs = readJobsFile(join(ROOT, "content", "jobs-external.json"));
+  }
 
   const combined = adminJobs.jobs.concat(externalJobs.jobs);
   // 채용 상세페이지(/jobs/<slug>.html)는 더 이상 빌드 시점에 미리 만들지 않습니다
@@ -124,4 +157,4 @@ function main() {
   console.log(`generate-job-pages: ${entries.length}건 집계 완료 (상세페이지는 요청 시 동적 렌더링)`);
 }
 
-main();
+await main();
