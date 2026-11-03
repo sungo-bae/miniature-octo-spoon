@@ -23,6 +23,24 @@
   var CLICK_URL = SUPABASE_REST + "apply_clicks";
   var CLICK_KEY = SUPABASE_KEY;
 
+  /* ---------------- 화면에 넣는 글자 지키기 ----------------
+     공고 제목·회사명·급여 문구는 고용24에 구인 업체가 직접 쓴 글이라, 그대로 HTML로 넣으면
+     그 안의 태그·스크립트가 이 사이트에서 실행될 수 있습니다. 화면 코드(innerHTML)에 넣는 바깥 자료는
+     모두 esc()로 감싸고, 링크 주소는 safeUrl()로 http(s)·사이트 안 주소만 허용합니다. */
+  function esc(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function safeUrl(value, fallback) {
+    var url = String(value || "").trim();
+    return /^(https?:\/\/|\/(?!\/)|#)/i.test(url) ? url : (fallback || "#");
+  }
+
   function cut40(value) {
     return value ? String(value).slice(0, 40) : null;
   }
@@ -146,7 +164,7 @@
 
     var html = '<option value="">전체</option>';
     names.forEach(function (name) {
-      html += '<option value="' + name + '">' + name + ' (' + counts[name] + '건)</option>';
+      html += '<option value="' + esc(name) + '">' + esc(name) + ' (' + esc(counts[name]) + '건)</option>';
     });
     searchRegionDetailEl.innerHTML = html;
     searchRegionDetailEl.disabled = false;
@@ -184,22 +202,22 @@
   // work24 원본 지역 텍스트는 "서울 강남구"처럼 "권역 세부지역"으로 와서, 가능하면
   // 세부지역까지 같이 보여줍니다(세부지역이 없는 공고는 권역만 표시).
   function jobRegionLabel(job) {
-    return job.regionDetail ? job.region + " " + job.regionDetail : job.region;
+    return job.regionDetail ? job.region + " " + job.regionDetail : job.region; // 글자 그대로 — HTML에 넣을 땐 esc()
   }
 
   function jobCardHTML(job) {
     return (
-      '<a class="job-card" href="/jobs/' + jobSlug(job) + '.html" aria-haspopup="dialog">' +
+      '<a class="job-card" href="/jobs/' + esc(jobSlug(job)) + '.html" aria-haspopup="dialog">' +
         '<div class="job-card-top">' +
           '<div>' +
-            '<p class="job-title">' + job.title + '</p>' +
-            '<p class="job-company">' + job.company + '</p>' +
+            '<p class="job-title">' + esc(job.title) + '</p>' +
+            '<p class="job-company">' + esc(job.company) + '</p>' +
             jobSourceBadge(job) +
           '</div>' +
           (job.isNew ? '<span class="job-tag">NEW</span>' : '') +
         '</div>' +
-        '<div class="job-meta"><span>' + jobRegionLabel(job) + '</span><span>' + job.type + '</span></div>' +
-        '<p class="job-pay">' + job.pay + '</p>' +
+        '<div class="job-meta"><span>' + esc(jobRegionLabel(job)) + '</span><span>' + esc(job.type) + '</span></div>' +
+        '<p class="job-pay">' + esc(job.pay) + '</p>' +
         '<p class="job-card-more">자세히 보기 →</p>' +
       '</a>'
     );
@@ -381,13 +399,13 @@
 
     var sourceEl = document.getElementById("jobModalSource");
     if (sourceEl) {
-      sourceEl.innerHTML = job.source ? jobSourceBadge(job) + " 출처: " + job.source : "";
+      sourceEl.innerHTML = job.source ? jobSourceBadge(job) + " 출처: " + esc(job.source) : "";
     }
 
     var contactBtn = document.getElementById("jobModalContact");
     if (contactBtn) {
       if (job.applyUrl) {
-        contactBtn.href = job.applyUrl;
+        contactBtn.href = safeUrl(job.applyUrl, KAKAO_CHANNEL_URL);
         contactBtn.textContent = "지원하기 (원문 공고로 이동)";
         contactBtn.target = "_blank";
         contactBtn.rel = "noopener";
@@ -630,12 +648,12 @@
   ];
 
   function noticeItemHTML(notice) {
-    var safeHref = notice.link ? notice.link : "#";
+    var safeHref = safeUrl(notice.link);
     return (
       '<li>' +
         (notice.isNew ? '<span class="tag tag-new">신규</span>' : '') +
-        '<a href="' + safeHref + '">' + notice.title + '</a>' +
-        '<time>' + notice.date + '</time>' +
+        '<a href="' + esc(safeHref) + '">' + esc(notice.title) + '</a>' +
+        '<time>' + esc(notice.date) + '</time>' +
       '</li>'
     );
   }
@@ -659,8 +677,8 @@
   function reviewCardHTML(review) {
     return (
       '<blockquote class="review-card">' +
-        '<p>“' + review.content + '”</p>' +
-        '<cite>' + review.name + ' · ' + review.jobTitle + '</cite>' +
+        '<p>“' + esc(review.content) + '”</p>' +
+        '<cite>' + esc(review.name) + ' · ' + esc(review.jobTitle) + '</cite>' +
       '</blockquote>'
     );
   }
@@ -697,13 +715,13 @@
       if (item.benefitType) detailParts.push("지원형태: " + item.benefitType);
       return (
         '<div class="legal-box" style="margin-bottom:14px;">' +
-          '<p style="margin:0; font-size:.8rem; color:var(--color-text-muted);">' + metaParts.join(" · ") + '</p>' +
-          '<p style="margin:6px 0 0; font-weight:700;">' + (item.title || "") + '</p>' +
-          (item.description ? '<p style="margin:6px 0 0;">' + item.description + '</p>' : "") +
-          (detailParts.length ? '<p style="margin:8px 0 0; font-size:.85rem;">' + detailParts.join(" · ") + '</p>' : "") +
+          '<p style="margin:0; font-size:.8rem; color:var(--color-text-muted);">' + esc(metaParts.join(" · ")) + '</p>' +
+          '<p style="margin:6px 0 0; font-weight:700;">' + esc(item.title) + '</p>' +
+          (item.description ? '<p style="margin:6px 0 0;">' + esc(item.description) + '</p>' : "") +
+          (detailParts.length ? '<p style="margin:8px 0 0; font-size:.85rem;">' + esc(detailParts.join(" · ")) + '</p>' : "") +
           '<p style="margin:8px 0 0; font-size:.8rem; color:var(--color-text-muted);">' +
             (item.lastModYmd ? "갱신일: " + formatYmd(item.lastModYmd) : "") +
-            (item.url ? ' · <a href="' + item.url + '" target="_blank" rel="noopener" style="text-decoration:underline; font-weight:700;">복지로에서 자세히 보기 →</a>' : "") +
+            (item.url ? ' · <a href="' + esc(safeUrl(item.url)) + '" target="_blank" rel="noopener" style="text-decoration:underline; font-weight:700;">복지로에서 자세히 보기 →</a>' : "") +
           '</p>' +
         '</div>'
       );

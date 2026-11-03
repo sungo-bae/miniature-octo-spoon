@@ -149,17 +149,26 @@ export default async (req) => {
   }
   console.log(`job-page: slug=${slug} found=${!!job}`);
 
+  // 정적 페이지와 같은 보안 설정 (netlify.toml의 [[headers]]는 함수 응답에 적용되지 않음)
+  const securityHeaders = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "SAMEORIGIN",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Content-Security-Policy": "frame-ancestors 'self'; base-uri 'self'; object-src 'none'"
+  };
+
   if (!job) {
     const samples = await sampleCurrentJobs();
     return new Response(notFoundPage(samples), {
       status: 404,
-      headers: { "Content-Type": "text/html; charset=utf-8" }
+      headers: { ...securityHeaders, "Content-Type": "text/html; charset=utf-8" }
     });
   }
 
   return new Response(jobDetailPage(job, slug, postedDate), {
     status: 200,
     headers: {
+      ...securityHeaders,
       "Content-Type": "text/html; charset=utf-8",
       // 같은 공고를 짧은 시간 안에 여러 번 요청해도 매번 다시 렌더링하지 않도록
       // CDN에서 잠시 캐시합니다. 데이터는 하루 1번 배포될 때만 바뀌므로 넉넉히 둡니다.
