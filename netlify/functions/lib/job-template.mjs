@@ -31,6 +31,12 @@ export function escapeHtml(str) {
     .replace(/'/g, "&#39;");
 }
 
+// 링크 주소는 http(s)·사이트 안 주소만 허용합니다 ("javascript:" 같은 주소로 스크립트가 실행되지 않게).
+export function safeUrl(value, fallback = "#") {
+  const url = String(value || "").trim();
+  return /^(https?:\/\/|\/(?!\/)|#)/i.test(url) ? url : fallback;
+}
+
 // js/main.js의 jobSourceBadge()와 같은 로직입니다. 한쪽만 고치면 표시가 어긋나니 같이 수정하세요.
 export function jobSourceBadge(job) {
   if (job.source === "워크넷") {
@@ -299,7 +305,7 @@ export function collectValidJobs(combinedJobs) {
 
 export function jobDetailPage(job, slug, fallbackDate) {
   const jsonLd = buildJobPostingJsonLd(job, slug, fallbackDate);
-  const applyHref = job.applyUrl || KAKAO_CHANNEL_URL;
+  const applyHref = safeUrl(job.applyUrl, KAKAO_CHANNEL_URL);
   const applyLabel = job.applyUrl ? "지원하기 (원문 공고로 이동)" : "💬 카카오톡으로 문의하기";
 
   const bodyHtml = `

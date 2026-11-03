@@ -17,3 +17,18 @@
   from = "/jobs/*"
   to = "/.netlify/functions/job-page"
   status = 200
+
+# 기본 보안 설정 (모든 정적 페이지). 공고 상세(job-page 함수)는 함수 응답에 같은 값을 직접 넣습니다.
+# - nosniff: 파일 종류를 브라우저가 멋대로 추측해 스크립트로 실행하지 못하게
+# - 다른 사이트가 실버잡을 몰래 끼워 넣어(iframe) 클릭을 가로채지 못하게 (실버잡 안에서 끼우는 것은 허용)
+# - base-uri/object-src: 끼어든 태그가 주소 기준이나 플러그인을 바꾸지 못하게
+# 스크립트 출처까지 막는 강한 CSP는 애드센스·카카오·Supabase 등과 충돌할 수 있어 넣지 않았습니다.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "SAMEORIGIN"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
+    Strict-Transport-Security = "max-age=31536000"
+    Content-Security-Policy = "frame-ancestors 'self'; base-uri 'self'; object-src 'none'"
