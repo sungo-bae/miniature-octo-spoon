@@ -3,7 +3,7 @@
 매일 노인 일자리 공고를 수집해 **이력을 쌓고**, 홈페이지가 바로 읽을 수 있는 **분석 뷰**와 **주간 신규 공고 예측**을 Supabase에 만들어 둡니다.
 
 ```
-공공 API ──(매일 06:07 KST, GitHub Actions)──▶ ingest_postings()  ──▶ job_postings / job_snapshots / job_daily_stats
+공공 API ──(매일 06:07 KST, GitHub Actions)──▶ ingest_postings()  ──▶ job_postings / job_posting_spans / job_daily_stats
                                                                      │
                                       pipeline/forecast.py ◀─────────┘──▶ job_forecasts
                                                                      │

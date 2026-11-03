@@ -20,6 +20,7 @@
 | 8 | `GITHUB_TOKEN` (Netlify) | 사이트 함수가 `main`에 커밋(복지정보 주간 갱신, 공고·후기 접수) | Netlify 환경변수 | GitHub 토큰 설정 화면에서 확인 | 사이트 저장소 쓰기 가능 → 즉시 폐기 |
 | 9 | `WELFARE_API_KEY` | 복지정보 주간 갱신(월 03:00) | Netlify 환경변수 | 공공데이터포털 활용기간(2년) | 재발급 |
 | 10 | `JOB_WEBHOOK_SECRET` | 공고·후기 접수 웹훅 주소의 암호 | Netlify 환경변수 + 폼 서비스의 웹훅 URL | 없음 | 가짜 접수 가능 → 새 값으로 두 곳 교체 |
+| 11 | `ARCHIVE_TOKEN` | 매달 연구용 보관본을 비공개 저장소 `silverjob-data`에 올리기 | GitHub Secrets (수집 저장소) | 만들 때 정한 날짜(1년 권장) | 보관 저장소 읽기·쓰기 가능 → 폐기 후 새로 |
 
 `GITHUB_REPO`, `GITHUB_BRANCH`(Netlify)는 비밀이 아닌 설정값입니다.
 
@@ -30,7 +31,7 @@
 | 2027-10 초 | #7 GitHub dispatch 토큰 새로 만들어 Vault 교체 (만료 2027-10-29) |
 | 매년 11월 | 공공데이터포털 마이페이지 → 활용신청 현황에서 #1·#9 활용기간 확인·연장 |
 | 매년 11월 | 고용24 Open API 마이페이지에서 #2 사용기간 확인 |
-| 매년 11월 | GitHub → Settings → Developer settings → Personal access tokens에서 #8 만료일 확인 |
+| 매년 11월 | GitHub → Settings → Developer settings → Personal access tokens에서 #8·#11 만료일 확인 |
 
 만료를 놓치면: #1·#2는 아침 수집이 403/401로 실패하고(GitHub Actions 빨간 표시, 아침 보고에 나옴),
 #7은 06:07 실행이 안 되고 예비 GitHub 일정(06:07·07:37, 늦을 수 있음)으로만 돕니다.
@@ -79,6 +80,13 @@ Netlify → Site configuration → Build & deploy → Build hooks → 옛 훅 �
 ### #8 Netlify의 GitHub 토큰
 GitHub에서 fine-grained 토큰 새로 만들기(저장소: 사이트 저장소 하나, Contents **Read and write**) →
 Netlify `GITHUB_TOKEN` 교체 → 옛 토큰 삭제.
+
+### #11 보관 저장소 토큰
+1. GitHub → Settings → Developer settings → Fine-grained tokens → Generate new token
+   - Repository access: `sungo-bae/silverjob-data` 하나만
+   - Permissions: Contents **Read and write** (그 외 없음), 만료 1년
+2. 수집 저장소(`miniature-octo-spoon`) → Settings → Secrets and variables → Actions → `ARCHIVE_TOKEN` 등록·교체
+3. 확인: Actions → monthly-archive → Run workflow → `silverjob-data`의 Releases에 이번 달 보관본이 생기면 성공
 
 ### #10 웹훅 암호
 아무 긴 임의 문자열을 만들어 Netlify `JOB_WEBHOOK_SECRET`에 넣고,

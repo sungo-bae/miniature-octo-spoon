@@ -14,7 +14,10 @@ psycopg = pytest.importorskip("psycopg")
 DSN = os.environ.get("PG_TEST_DSN")
 pytestmark = pytest.mark.skipif(not DSN, reason="PG_TEST_DSN not set")
 
-MIGRATION = Path(__file__).parents[1] / "supabase/migrations/20261026000000_silverjob_analytics.sql"
+MIGRATIONS = Path(__file__).parents[1] / "supabase/migrations"
+MIGRATION = MIGRATIONS / "20261026000000_silverjob_analytics.sql"
+# 매일 기록을 공고별 게시 기간으로 바꾼 수집 함수 (pg_cron·Vault가 필요한 나머지 마이그레이션은 싣지 않는다)
+SPANS = MIGRATIONS / "20261105000000_posting_spans.sql"
 
 
 @pytest.fixture()
@@ -24,6 +27,7 @@ def db():
         for role in ("anon", "authenticated"):
             conn.execute(f"do $$ begin create role {role}; exception when duplicate_object then null; end $$")
         conn.execute(MIGRATION.read_text())
+        conn.execute(SPANS.read_text())
         yield conn
 
 
@@ -108,3 +112,71 @@ def test_weekly_trend_includes_history_without_double_counting(db):
                   ('test', 'old', '서울특별시', '2025-12-29')""")
     trend = db.execute("select week_start, new_count from v_weekly_trend order by 1").fetchall()
     assert trend == [(date(2025, 12, 29), 1), (date(2026, 1, 5), 1)]
+
+
+def presence(db):
+    return set(db.execute("select snapshot_date, p.source_id from v_job_daily_presence v "
+                          "join job_postings p on p.id = v.posting_id").fetchall())
+
+
+def test_spans_record_each_continuous_stretch(db):
+    d = [date(2026, 1, 5) + timedelta(days=i) for i in range(4)]
+    ingest(db, d[0], [row("a"), row("b")])
+    ingest(db, d[1], [row("a")])
+    ingest(db, d[2], [row("b")])          # a 내려감, b 다시 올라옴
+    ingest(db, d[3], [row("a"), row("b")])
+    spans = db.execute("select p.source_id, s.start_date, s.end_date from job_posting_spans s "
+                       "join job_postings p on p.id = s.posting_id order by 1, 2").fetchall()
+    assert spans == [("a", d[0], d[1]), ("a", d[3], d[3]), ("b", d[0], d[0]), ("b", d[2], d[3])]
+    assert presence(db) == {(d[0], "a"), (d[0], "b"), (d[1], "a"), (d[2], "b"), (d[3], "a"), (d[3], "b")}
+
+
+def test_skipped_collection_day_keeps_stretch(db):
+    # 수집을 못 한 날(1/6)은 공고가 내려간 것으로 보지 않는다
+    ingest(db, date(2026, 1, 5), [row("a")])
+    ingest(db, date(2026, 1, 7), [row("a")])
+    assert db.execute("select count(*) from job_posting_spans").fetchone()[0] == 1
+
+
+def test_same_day_rerun_is_idempotent(db):
+    d1, d2 = date(2026, 1, 5), date(2026, 1, 6)
+    ingest(db, d1, [row("a"), row("b")])
+    ingest(db, d2, [row("a"), row("c")])
+    before = (presence(db), db.execute("select * from job_daily_stats order by 1, 2, 3, 4").fetchall())
+    ingest(db, d2, [row("a"), row("c")])
+    after = (presence(db), db.execute("select * from job_daily_stats order by 1, 2, 3, 4").fetchall())
+    assert before == after
+    # 다시 받은 결과가 다르면 그 결과로 바뀐다
+    ingest(db, d2, [row("b")])
+    assert presence(db) == {(d1, "a"), (d1, "b"), (d2, "b")}
+
+
+def test_older_date_is_rejected(db):
+    ingest(db, date(2026, 1, 6), [row("a")])
+    with pytest.raises(psycopg.errors.RaiseException):
+        ingest(db, date(2026, 1, 5), [row("a")])
+
+
+def test_snapshots_move_into_spans_unchanged():
+    """예전 매일 기록(job_snapshots)이 게시 기간으로 한 줄도 빠짐없이 옮겨지는지."""
+    with psycopg.connect(DSN, autocommit=True) as conn:
+        conn.execute("drop schema if exists public cascade; create schema public;")
+        for role in ("anon", "authenticated"):
+            conn.execute(f"do $$ begin create role {role}; exception when duplicate_object then null; end $$")
+        conn.execute(MIGRATION.read_text())   # 예전 수집 함수로 쌓는다
+        days = [date(2026, 1, 5) + timedelta(days=i) for i in range(6)]
+        lists = [["a", "b"], ["a"], ["b", "c"], ["a", "b", "c"], ["c"], ["a", "c"]]
+        for day, ids in zip(days, lists):
+            if day == days[4]:
+                continue                       # 하루 수집 실패
+            ingest(conn, day, [row(i) for i in ids])
+        ingest(conn, days[0], [row("x")], source="other")
+        old = set(conn.execute("select snapshot_date, p.source_id from job_snapshots s "
+                               "join job_postings p on p.id = s.posting_id").fetchall())
+        old_stats = conn.execute("select * from job_daily_stats order by 1, 2, 3, 4").fetchall()
+        conn.execute(SPANS.read_text())
+        assert conn.execute("select to_regclass('public.job_snapshots')").fetchone()[0] is None
+        assert presence(conn) == old
+        # 새 함수로 마지막 날을 다시 받아도 일별 집계가 예전 함수와 같다
+        ingest(conn, days[5], [row("a"), row("c")])
+        assert conn.execute("select * from job_daily_stats order by 1, 2, 3, 4").fetchall() == old_stats
