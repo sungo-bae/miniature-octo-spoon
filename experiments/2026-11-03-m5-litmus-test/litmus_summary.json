@@ -1,0 +1,7 @@
+{
+  "n_sku_tested":47,
+  "test_start":"2016-02-01",
+  "overall_wape_baseline":0.6362619332,
+  "overall_wape_candidate":0.5533713162,
+  "overall_relative_improvement_pct":13.0277504669
+}
