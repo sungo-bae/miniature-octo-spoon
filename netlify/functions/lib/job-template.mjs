@@ -70,6 +70,57 @@ export function toIsoDeadline(deadline) {
   return m ? `${m[1]}-${m[2]}-${m[3]}` : "";
 }
 
+// ---------------- 구글 검색에 여는 공고 ----------------
+// 2026-10-26부터 공고 상세페이지 전체를 noindex로 막았습니다(고용24 원문을 그대로 옮긴 얇은 페이지
+// 수천 건이 저품질로 비칠 수 있어서). 이제 "쓸모 있고 살아 있는" 공고만 다시 엽니다:
+//  - 실버잡에 직접 등록된 공고는 항상
+//  - 고용24 공고는 최근 INDEX_WINDOW_DAYS일 안에 올라왔고, 실제 마감일이 있으며(채용시까지 제외)
+//    아직 마감 전이고, 근무지 주소와 급여가 있는 것만
+// 마감일이 지나면 자동으로 다시 noindex가 되고, 목록에서 빠지면 404가 됩니다.
+export const INDEX_WINDOW_DAYS = 7;
+
+function kstToday(now = new Date()) {
+  return new Date(now.getTime() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+function isoDaysBefore(isoDate, days) {
+  const d = new Date(isoDate + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().slice(0, 10);
+}
+
+export function isIndexableJob(job, now = new Date()) {
+  if (job.source !== "워크넷") return true; // 실버잡에 직접 등록된 공고
+  const deadline = toIsoDeadline(job.deadline);
+  const posted = job.postedDate || job.datePosted || "";
+  if (!deadline || !posted || !job.address || !job.pay) return false;
+  const today = kstToday(now);
+  return deadline >= today && posted >= isoDaysBefore(today, INDEX_WINDOW_DAYS);
+}
+
+// 직종별 준비 요령 — 고용24 원문에는 없는 실버잡의 안내입니다. 통계로 확인되지 않은 수치(합격률 등)는
+// 쓰지 않고, 일반적으로 알려진 준비 방법만 적습니다.
+const JOB_TIPS = {
+  경비안전: "경비지도사·소방안전관리자 자격이 있으면 유리합니다. 2교대·3교대나 격일 근무가 많으니 근무 형태와 휴게시간을 먼저 확인하세요. 일반경비원 신임교육(24시간) 이수가 필요한 경우가 많습니다.",
+  미화: "특별한 자격 없이 지원할 수 있는 경우가 많습니다. 근무 시간대(새벽·오전)와 담당 구역 넓이를 물어보고, 성실하게 오래 일한 경력을 이력서에 적어 보세요.",
+  조리: "조리기능사 자격이나 위생교육 이수 경험이 있으면 도움이 됩니다. 단체급식이라면 하루 식수 인원과 근무 시간을 확인하고, 급식·조리 경력을 구체적으로 적어 주세요.",
+  사무보조: "문서 작성·엑셀 등 기본 컴퓨터 활용 능력을 묻는 경우가 많습니다. 민원 응대나 안내 업무라면 친절한 응대 경험을 강조해 보세요.",
+  시설관리: "전기·보일러·소방 관련 자격이 있으면 크게 유리합니다. 아파트·건물 관리는 야간·휴일 당직이 있는지 꼭 확인하세요.",
+  사회공헌: "요양보호사는 국가자격증이 필요합니다. 돌봄·복지 일은 근무 시간과 이동 거리(방문형 여부)를 먼저 확인하고, 봉사·간병 경험을 적어 주세요."
+};
+
+function jobTipsHtml(job) {
+  const tip = JOB_TIPS[job.job];
+  return `
+      <div class="legal-box" style="margin-top:28px;">
+        <p style="margin:0;"><strong>실버잡 도움말</strong></p>
+        ${tip ? `<p style="margin:6px 0 0;">${escapeHtml(tip)}</p>` : ""}
+        <p style="margin:6px 0 0;">지원 전 확인할 것: 근무 시간과 휴일, 급여 지급 방식(시급·월급), 4대보험 가입 여부, 출퇴근 거리.
+          자세한 요령은 <a href="/apply-guide.html" style="text-decoration:underline;">지원 방법 가이드</a>, 지역·직종별 일자리 흐름은
+          <a href="/report.html" style="text-decoration:underline;">일자리 현황 리포트</a>에서 볼 수 있어요.</p>
+      </div>`;
+}
+
 export function buildJobPostingJsonLd(job, slug, fallbackDate) {
   const datePosted = job.postedDate || job.datePosted || fallbackDate || "";
   const validThrough = toIsoDeadline(job.deadline);
@@ -270,21 +321,22 @@ export function jobDetailPage(job, slug, fallbackDate) {
       ${job.contact ? `<h2 style="font-size:1.1rem;">문의처</h2><p>${escapeHtml(job.contact)}</p>` : ""}
       ${job.source ? `<p style="color:var(--color-text-muted); font-size:.9rem; margin-top:24px;">출처: ${escapeHtml(job.source)}</p>` : ""}
 
+      ${jobTipsHtml(job)}
+
       <div style="margin-top:28px;">
         <a href="${escapeHtml(applyHref)}" class="btn btn-primary btn-lg"${job.applyUrl ? ' data-external-apply="1"' : ""} data-apply-track="detail" data-slug="${escapeHtml(slug)}" data-region="${escapeHtml(job.region || "")}" data-category="${escapeHtml(job.job || "")}" target="_blank" rel="noopener">${applyLabel}</a>
       </div>
 `;
 
-  // work24에서 받아온 공고 상당수는 description이 비어있어 페이지 내용이 얇습니다.
-  // 수천 건을 그대로 구글에 색인 요청하면 저품질/중복 콘텐츠로 비칠 수 있어
-  // noindex로 둡니다 — 사용자·링크 이동(지원하기 등)에는 영향 없습니다.
+  // 최근에 올라왔고 마감일이 있는 공고만 검색에 엽니다(isIndexableJob). 나머지는 noindex —
+  // 사용자·링크 이동(지원하기 등)에는 영향 없습니다.
   return pageShell({
     title: job.title,
     description: truncate(buildDescription(job), 160),
     slug,
     bodyHtml,
     jsonLd,
-    noindex: true
+    noindex: !isIndexableJob(job)
   });
 }
 
