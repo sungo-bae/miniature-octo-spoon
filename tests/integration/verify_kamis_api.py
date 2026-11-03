@@ -10,13 +10,17 @@
     1. .env.example을 .env로 복사하고 DATA_GO_KR_SERVICE_KEY를 채운다
        (특일정보·기상청과 같은 키를 그대로 쓰면 된다).
     2. pip install -r requirements.txt
-    3. python3 tests/integration/verify_kamis_api.py
+    3. python3 tests/integration/verify_kamis_api.py [품목코드] [부류코드]
+       기본값은 배추(211, 200). 다른 품목을 검증하려면 인자로 넘긴다.
+       예) 쌀(무게단위 품목) 검증: python3 tests/integration/verify_kamis_api.py 111 100
 
 확인하려는 것:
     - response.header/response.body 응답 봉투 구조 가정이 맞는지
       (docs/algorithm_specification/market_price_features.md "알려진 한계" 참고)
     - exmn_ymd/item_nm/exmn_dd_prc/exmn_dd_cnvs_prc 등 필드명이 실제와 맞는지
     - KamisClient.fetch_period_prices()가 정상적으로 파싱해내는지
+    - (무게단위 품목 검증 시) converted_price가 kg 환산값으로 실제 동작하는지
+      — 배추(개수단위/포기)에서는 price와 동일하게 나온다는 게 이미 확인됨
 
 여기서 에러가 나거나 결과가 이상하면, 이 스크립트의 "1) 원본 응답" 출력을
 그대로 복사해서 알려주면 kamis_api.py를 실제 스키마에 맞게 고칠 수 있다.
@@ -68,7 +72,8 @@ def main() -> None:
 
     end = date.today() - timedelta(days=1)
     start = end - timedelta(days=13)
-    item_code, category_code = "211", "200"  # 배추, 채소류
+    item_code = sys.argv[1] if len(sys.argv) > 1 else "211"  # 기본값: 배추
+    category_code = sys.argv[2] if len(sys.argv) > 2 else "200"  # 기본값: 채소류
 
     print("=" * 70)
     print("1) 원본 응답 확인 (raw request)")

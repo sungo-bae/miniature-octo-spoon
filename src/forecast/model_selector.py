@@ -96,7 +96,7 @@ def run_baseline_candidate_backtest(
     if train_features.empty:
         raise ValueError("학습 피처가 모두 결측입니다 (지연 피처 warm-up 기간 확인).")
 
-    model = GradientBoostingRegressor(loss="absolute_error")
+    model = GradientBoostingRegressor(loss="absolute_error", random_state=42)
     model.fit(train_features, train_target)
 
     test_features = numeric_features.loc[test_idx].dropna()

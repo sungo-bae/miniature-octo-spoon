@@ -1,0 +1,15 @@
+{
+  "wape_naive_baseline":0.0938732885,
+  "wape_without_price":0.0631572559,
+  "wape_with_price_raw_lags":0.0656414442,
+  "wape_with_price_shifted_pct_change":0.0584364321,
+  "additional_improve_raw_lags_pct":-3.9333380147,
+  "additional_improve_shifted_pct_change_pct":7.4747132297,
+  "mase_without_price":1.0671355505,
+  "mase_with_price_raw_lags":1.1091095988,
+  "mase_with_price_shifted_pct_change":0.9873702283,
+  "elasticity_used":0.5,
+  "effect_lag_days":3.0,
+  "n_days":730.0,
+  "test_days":84.0
+}
