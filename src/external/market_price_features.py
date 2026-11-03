@@ -17,38 +17,49 @@ from src.external.kamis_api import KamisClient
 
 def build_market_price_series(
     item_code: str,
-    item_category_code: str,
+    category_code: str,
     start: date,
     end: date,
     client: Optional[KamisClient] = None,
-    country_code: str = "1101",
-    product_cls_code: str = "01",
+    se_code: str = "01",
+    sgg_code: Optional[str] = None,
 ) -> pd.DataFrame:
     """start~end(포함) 구간의 품목 일별 가격 테이블을 만든다.
 
     KAMIS는 공휴일·주말 등 비거래일 데이터를 비워서 줄 수 있으므로,
     반환값은 실제 거래일만 포함한다 — 달력 전체를 채우는 전진채움(ffill)은
-    make_market_price_features()에서 수행한다.
+    make_market_price_features()에서 수행한다. 가격은 품목 간 비교가
+    가능한 kg환산가격(price_per_kg)을 사용한다.
+
+    Args:
+        item_code: 품목코드 (예: "211"=배추).
+        category_code: 부류코드 (예: "200"=채소류).
+        se_code: 구분코드. "01"=소매(기본값), "02"=중도매, "03"=친환경농산물.
+        sgg_code: 시군구코드 (예: "1101"=서울). 미지정 시 전국 전체.
 
     반환 컬럼: date, price
     """
     client = client or KamisClient()
     records = client.fetch_period_prices(
         item_code=item_code,
-        item_category_code=item_category_code,
+        category_code=category_code,
         start=start,
         end=end,
-        country_code=country_code,
-        product_cls_code=product_cls_code,
+        se_code=se_code,
+        sgg_code=sgg_code,
     )
     if not records:
         return pd.DataFrame(columns=["date", "price"])
-    return pd.DataFrame(
+    raw = pd.DataFrame(
         {
-            "date": [pd.Timestamp(r.regday) for r in records],
-            "price": [r.price for r in records],
+            "date": [pd.Timestamp(r.exmn_ymd) for r in records],
+            "price": [r.price_per_kg for r in records],
         }
-    ).sort_values("date").reset_index(drop=True)
+    )
+    # sgg_code를 지정하지 않으면 지역별 여러 시장이 같은 날짜로 섞여 올 수 있다.
+    # make_market_price_features()의 reindex가 날짜 인덱스 유일성을 요구하므로
+    # 같은 날짜는 평균으로 합친다.
+    return raw.groupby("date", as_index=False)["price"].mean().sort_values("date").reset_index(drop=True)
 
 
 def make_market_price_features(

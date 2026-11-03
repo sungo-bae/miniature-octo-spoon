@@ -27,13 +27,12 @@ experiments/        # 실증 검증 기록 (부록 E) — 예: M5 공개데이�
 
 ## 준비물
 
-1. 공공데이터포털(data.go.kr)에서 아래 두 서비스를 활용신청하고 서비스키를 발급받습니다.
+1. 공공데이터포털(data.go.kr)에서 아래 세 서비스를 활용신청하고 서비스키를 발급받습니다.
    - 한국천문연구원_특일 정보
    - 기상청_단기예보 조회서비스
-2. KAMIS Open API 포털(kamis.or.kr/customer/reference/openapi_list.do)에서
-   인증키·아이디를 별도로 발급받습니다 (선택 — 농산물 가격 피처 사용 시 필요).
-3. `.env.example`을 `.env`로 복사하고 `DATA_GO_KR_SERVICE_KEY`,
-   `KAMIS_CERT_KEY`, `KAMIS_CERT_ID`에 발급받은 키를 입력합니다.
+   - 한국농수산식품유통공사_일별 도,소매 가격정보 조회 (자동승인 — 기다릴 필요 없음)
+2. `.env.example`을 `.env`로 복사하고 `DATA_GO_KR_SERVICE_KEY`에 발급받은 키를 입력합니다
+   (세 서비스 모두 같은 키를 공용으로 사용합니다).
 
 ## 설치 및 테스트
 
