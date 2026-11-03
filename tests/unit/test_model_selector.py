@@ -58,3 +58,43 @@ def test_run_pattern_aware_backtest_routes_intermittent_to_croston():
     assert result.demand_pattern in ("intermittent", "lumpy")
     assert not result.candidate.empty
     assert (result.candidate == result.candidate.iloc[0]).all()  # 평평한 예측
+
+
+def _high_volume_lumpy_series(n_days: int = 200) -> pd.Series:
+    # 3일에 한 번 발생(adi>=1.32)하되 수요크기가 2~20으로 크게 변동(cv2>=0.49)
+    # 해서 lumpy로 분류되고, 평균 일 판매량은 _HIGH_VOLUME_AVG_RATE 이상이 되도록 함.
+    idx = pd.date_range("2025-01-01", periods=n_days, freq="D")
+    values = [0.0] * n_days
+    for n, i in enumerate(range(0, n_days, 3)):
+        values[i] = 2.0 if n % 2 == 0 else 20.0
+    return pd.Series(values, index=idx)
+
+
+def test_run_pattern_aware_backtest_routes_high_volume_lumpy_to_tsb():
+    y = _high_volume_lumpy_series()
+    features = make_calendar_lag_features(y, lags=[1, 7, 14])
+    test_start = y.index[-30]
+
+    result = run_pattern_aware_backtest(y, features, test_start=test_start)
+
+    assert result.method == "tsb"
+    assert result.demand_pattern == "lumpy"
+    assert not result.candidate.empty
+    assert (result.candidate == result.candidate.iloc[0]).all()  # 평평한 예측
+
+
+def test_run_pattern_aware_backtest_routes_low_volume_lumpy_to_blend():
+    # 수요크기 변동은 lumpy 기준을 만족하지만 평균 판매량이 낮은 경우
+    # TSB가 아닌 기존 블렌드를 써야 한다 (저매출 lumpy는 TSB가 악화시킴).
+    idx = pd.date_range("2025-01-01", periods=200, freq="D")
+    values = [0.0] * 200
+    for n, i in enumerate(range(0, 200, 6)):
+        values[i] = 0.5 if n % 2 == 0 else 3.0
+    y = pd.Series(values, index=idx)
+    features = make_calendar_lag_features(y, lags=[1, 7, 14])
+    test_start = y.index[-30]
+
+    result = run_pattern_aware_backtest(y, features, test_start=test_start)
+
+    assert result.demand_pattern == "lumpy"
+    assert result.method == "blend"

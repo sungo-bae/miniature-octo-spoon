@@ -48,17 +48,36 @@
    2.3~4.0, B/C등급은 0.5~1.1로 뚜렷이 갈려 1.3을 기준으로 삼았다. 다른
    매장·업종 데이터에서는 재검증이 필요하다(아래 "다음 단계" 참고).
 
+4. **TSB는 lumpy 패턴 + 고매출 SKU에만 적용한다 — 저매출 lumpy는
+   여전히 블렌드를 쓴다.** `experiments/2026-11-03-lumpy-tsb-test`에서
+   18개 lumpy SKU(A/B/C 각 6개)로 Croston/TSB를 비교한 결과, TSB는
+   Croston과 **정반대 방향의 매출-의존성**을 보였다:
+   - A등급 lumpy(일평균 약 1.56 이상)에서는 TSB가 블렌드보다 나았다
+     (15.8%→18.8% 개선).
+   - B/C등급 lumpy(일평균 1.31 이하)에서는 TSB가 크게 악화시켰다
+     (4.1%→-24.3%, -0.05%→-31.0%).
+
+   따라서 `_TSB_PATTERN = "lumpy"`, `_HIGH_VOLUME_AVG_RATE = 1.4`를 모두
+   만족할 때만 TSB를 적용한다. 48개 SKU 전체 재검증 결과 전체 가중 WAPE
+   개선율이 14.4%(Croston만)→**15.1%**(Croston+TSB)로 올랐고, 다른 모든
+   셀은 악화 없이 유지됐다. B/C등급 lumpy는 여전히 미해결이다(아래
+   "알려진 한계" 참고) — TSB는 WAPE 기준으로는 더 나빴지만 서비스수준은
+   오히려 셋 중 가장 높았다(0.6434→0.6843, 블렌드/Croston 대비). 이는
+   저매출 lumpy에 WAPE 대신 서비스수준을 주지표로 쓰는 게 더 적합할
+   수 있다는 4.6절 보완 B5의 원래 취지와 맞는 신호다.
+
 ## 알려진 한계 (TODO)
 
-- **lumpy 패턴에는 아직 대응책이 없다.** B/C lumpy는 블렌드모델도 거의
-  개선이 없었고(4.1%, -0.05%) Croston SBA는 오히려 악화시켰다. lumpy는
-  수요크기 변동 자체가 예측의 어려움이므로, TSB(Teunter-Syntetos-Babai)
-  방법이나 분위수 기반(예: 안전재고 자체를 분위수로 직접 추정) 접근을
-  검토해야 한다. 이는 AI·최적화 선임연구원이 직접 설계해야 하는 핵심
-  연구내용이다(3.5절 직접개발 의무).
-- **`_LOW_VOLUME_AVG_RATE` 임계값은 매장 1개·표본 48개(셀당 5~6개)로
-  정한 값이라 통계적으로 약하다.** 다른 매장(TX_1, WI_1 등)으로 재검증해
-  임계값을 확정해야 한다.
+- **B/C등급 lumpy(저매출)에는 아직 대응책이 없다.** 블렌드(4.1%/-0.05%),
+  Croston(-18.2%/-29.8%), TSB(-24.3%/-31.0%) 셋 다 뚜렷한 개선이
+  없거나 오히려 악화시켰다 — 현재는 블렌드를 그대로 쓴다(가장 덜
+  나쁜 선택). lumpy는 수요크기 변동 자체가 예측의 어려움이므로,
+  점추정(WAPE) 대신 분위수 기반 안전재고(서비스수준 직접 타겟팅)
+  접근을 검토해야 한다. 이는 AI·최적화 선임연구원이 직접 설계해야
+  하는 핵심 연구내용이다(3.5절 직접개발 의무).
+- **`_LOW_VOLUME_AVG_RATE`/`_HIGH_VOLUME_AVG_RATE` 임계값은 매장
+  1개·표본 48개(셀당 5~6개)로 정한 값이라 통계적으로 약하다.** 다른
+  매장(TX_1, WI_1 등)으로 재검증해 임계값을 확정해야 한다.
 - **ABC등급(매출 비중)을 SKU 자체 특징(학습구간 평균 판매량)으로 근사했다.**
   원래 ABC등급은 매장 전체 카탈로그 기준 매출 누적비중으로 계산하므로
   카탈로그 맥락이 필요하지만, `model_selector.py`는 SKU 단위로 호출되는
@@ -72,18 +91,22 @@
 
 ## 다음 단계 제안
 
-1. 다른 M5 매장(TX_1, WI_1 등)으로 `compare_pattern_aware.py`를 재실행해
-   `_LOW_VOLUME_AVG_RATE` 임계값과 lumpy 대응책 필요성을 재확인.
-2. lumpy 패턴 전용 모델(TSB, 분위수 기반 등) 후보 조사 및 구현.
+1. 다른 M5 매장(TX_1, WI_1 등)으로 `compare_pattern_aware.py`/`compare_tsb.py`를
+   재실행해 `_LOW_VOLUME_AVG_RATE`/`_HIGH_VOLUME_AVG_RATE` 임계값과 B/C등급
+   lumpy 대응책 필요성을 재확인.
+2. B/C등급 lumpy에 분위수 기반 안전재고 접근(점추정 모델 교체가 아닌
+   평가 패러다임 전환) 검토 및 구현.
 3. MASE·서비스수준(`src/evaluation/poc_metrics.py`)을 간헐/럼피 셀의
-   주지표로 전환 — WAPE는 분모(실제판매 합)가 작아 지표가 불안정하다
+   주지표로 전환 — WAPE는 분모(실제판매 합)가 작아 지표가 불안정하고,
+   TSB 실험에서 서비스수준이 WAPE와 다른 결론을 낼 수 있음을 확인했다
    (4.6절 보완 B5 원안).
 
 ## 테스트
 
-`tests/unit/test_demand_pattern.py`, `test_intermittent.py`에서 분류·Croston
+`tests/unit/test_demand_pattern.py`, `test_intermittent.py`에서 분류·Croston·TSB
 계산을 단위테스트하고, `test_model_selector.py`에서
-`run_pattern_aware_backtest`의 분기(smooth→blend, 저매출 intermittent→croston)를
-검증한다. 실제 M5 데이터 기반 비교는 코드 리뷰용 스크립트
-(`experiments/2026-11-03-m5-litmus-test/compare_pattern_aware.py`)로
-별도 실행하며, 용량 문제로 원본 M5 CSV는 저장소에 포함하지 않는다.
+`run_pattern_aware_backtest`의 분기(smooth→blend, 저매출 intermittent→croston,
+고매출 lumpy→tsb, 저매출 lumpy→blend)를 검증한다. 실제 M5 데이터 기반 비교는
+코드 리뷰용 스크립트(`experiments/2026-11-03-m5-litmus-test/compare_pattern_aware.py`,
+`experiments/2026-11-03-lumpy-tsb-test/compare_tsb.py`)로 별도 실행하며, 용량
+문제로 원본 M5 CSV는 저장소에 포함하지 않는다.

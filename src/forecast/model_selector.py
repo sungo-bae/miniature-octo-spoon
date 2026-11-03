@@ -17,7 +17,7 @@ from sklearn.ensemble import GradientBoostingRegressor
 
 from src.forecast.baselines import seasonal_naive_7
 from src.forecast.demand_pattern import classify_demand_pattern
-from src.forecast.intermittent import croston_sba_forecast
+from src.forecast.intermittent import croston_sba_forecast, tsb_forecast
 
 # Croston SBA 분기 조건 (4.6절 보완 B5, experiments/2026-11-03-m5-litmus-test 실증 결과):
 #
@@ -34,6 +34,20 @@ from src.forecast.intermittent import croston_sba_forecast
 # 조정이 필요할 수 있다.
 _CROSTON_PATTERN = "intermittent"
 _LOW_VOLUME_AVG_RATE = 1.3
+
+# TSB 분기 조건 (experiments/2026-11-03-m5-litmus-test/compare_tsb.py 실증 결과):
+#
+# lumpy 패턴 18개 SKU(A/B/C 각 6개)로 TSB(Teunter-Syntetos-Babai)를
+# 테스트한 결과, intermittent와 "반대 방향"의 매출-의존성이 나타났다 —
+# A등급 lumpy(학습구간 일평균 약 1.56 이상)에서는 TSB가 기존 블렌드보다
+# 나았고(블렌드 15.8% 개선 -> TSB 18.8% 개선), B/C등급 lumpy(일평균
+# 1.31 이하)에서는 TSB가 크게 악화시켰다(블렌드 4.1%/-0.05% -> TSB
+# -24.3%/-31.0%). 따라서 "lumpy 패턴 + 고매출"에만 TSB를 적용하고, 저매출
+# lumpy는 여전히 블렌드를 쓴다 — B/C등급 lumpy는 이번 실험으로도 해결하지
+# 못한 공개 과제로 남는다(docs/algorithm_specification/
+# demand_pattern_routing.md "알려진 한계" 참고).
+_TSB_PATTERN = "lumpy"
+_HIGH_VOLUME_AVG_RATE = 1.4
 
 # holiday_name 등 텍스트 컬럼은 사람이 읽기 위한 부가정보이며 모델 입력에서 제외한다.
 _NON_NUMERIC_FEATURE_COLUMNS = ("holiday_name",)
@@ -126,11 +140,16 @@ def run_pattern_aware_backtest(
 ) -> ForecastResult:
     """수요패턴(4.6절 보완 B5)에 따라 모델을 분기하는 백테스트.
 
-    학습구간만으로 ADI/CV^2 분류와 일평균 판매량을 계산해, intermittent
-    패턴이면서 저매출(_LOW_VOLUME_AVG_RATE 미만)인 SKU만 Croston
-    SBA(croston_sba_forecast)를 사용하고, 그 외(smooth/erratic/lumpy,
-    고매출 intermittent)에는 기존 run_baseline_candidate_backtest의
-    계절나이브+GBM 블렌드를 사용한다. 분류를 검증구간이 아닌 학습구간만
+    학습구간만으로 ADI/CV^2 분류와 일평균 판매량을 계산해 다음 중 하나로
+    분기한다:
+      - intermittent 패턴 + 저매출(_LOW_VOLUME_AVG_RATE 미만): Croston SBA
+      - lumpy 패턴 + 고매출(_HIGH_VOLUME_AVG_RATE 이상): TSB
+      - 그 외(smooth/erratic, 고매출 intermittent, 저매출 lumpy): 기존
+        run_baseline_candidate_backtest의 계절나이브+GBM 블렌드
+
+    저매출 lumpy(B/C등급)는 세 방법 모두 뚜렷한 개선이 없는 미해결
+    구간이다 — 현재는 블렌드를 그대로 쓴다(docs/algorithm_specification/
+    demand_pattern_routing.md 참고). 분류를 검증구간이 아닌 학습구간만
     으로 수행하는 것은 미래 데이터 누출(data leakage)을 막기 위함이다.
     """
     train_y = y.loc[y.index < test_start]
@@ -139,9 +158,11 @@ def run_pattern_aware_backtest(
         raise ValueError("test_start 기준으로 학습/검증 구간이 비어 있습니다.")
 
     pattern = classify_demand_pattern(train_y)
-    use_croston = pattern == _CROSTON_PATTERN and train_y.mean() < _LOW_VOLUME_AVG_RATE
+    avg_rate = train_y.mean()
+    use_croston = pattern == _CROSTON_PATTERN and avg_rate < _LOW_VOLUME_AVG_RATE
+    use_tsb = pattern == _TSB_PATTERN and avg_rate >= _HIGH_VOLUME_AVG_RATE
 
-    if not use_croston:
+    if not use_croston and not use_tsb:
         result = run_baseline_candidate_backtest(y, features, test_start, bias_window)
         result.demand_pattern = pattern
         return result
@@ -149,13 +170,18 @@ def run_pattern_aware_backtest(
     baseline_full = seasonal_naive_7(y)
     baseline_test = baseline_full.loc[test_idx]
 
-    forecast_values = croston_sba_forecast(train_y, horizon=len(test_idx))
+    if use_croston:
+        forecast_values = croston_sba_forecast(train_y, horizon=len(test_idx))
+        method = "croston_sba"
+    else:
+        forecast_values = tsb_forecast(train_y, horizon=len(test_idx))
+        method = "tsb"
     candidate = pd.Series(forecast_values, index=test_idx)
 
     return ForecastResult(
         candidate=candidate,
         baseline=baseline_test,
         bias_factor=1.0,
-        method="croston_sba",
+        method=method,
         demand_pattern=pattern,
     )
