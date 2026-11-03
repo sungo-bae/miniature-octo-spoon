@@ -1,0 +1,40 @@
+name: legacy-archive
+
+# 1회성: 매일 수집(2026-10-27~)을 시작하기 전 silverjob.kr이 쓰던 공고 자료를 사이트(main 브랜치)
+# git 기록에서 꺼내 비공개 보관 저장소의 릴리스(legacy-site-YYYY-MM-DD)로 올린다.
+# 다시 실행하면 같은 릴리스를 같은 내용으로 덮어쓴다. 자료 설명: docs/legacy/README.md
+on:
+  workflow_dispatch:
+
+jobs:
+  legacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ secrets.ARCHIVE_TOKEN }}
+      ARCHIVE_REPO: ${{ vars.ARCHIVE_REPO || 'sungo-bae/silverjob-data' }}
+      TAG: legacy-site-2026-11-03
+    steps:
+      - name: 보관 저장소 확인
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "::error::ARCHIVE_TOKEN이 없습니다 (docs/KEYS.md #11)"; exit 1; fi
+          if [ "$(gh api "repos/$ARCHIVE_REPO" --jq .private)" != "true" ]; then
+            echo "::error::$ARCHIVE_REPO 가 비공개 저장소가 아니거나 열 수 없습니다. 공개 저장소에는 올리지 않습니다."; exit 1
+          fi
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # 사이트(main) 브랜치의 전체 기록이 필요하다
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: 사이트 기록에서 자료 꺼내기
+        run: python -m pipeline.legacy_site_archive --site-repo . --ref origin/main --out legacy
+      - name: 비공개 저장소 릴리스로 올리기
+        run: |
+          title="수집 시작 전 사이트 자료 (2026-09-08 ~ 2026-11-03)"
+          notes="silverjob.kr이 2026-10-27 정식 수집 전부터 쓰던 고용24 공고 표본·일별 요약·복지정보. 반드시 README.md의 한계를 먼저 읽어 주세요."
+          if gh release view "$TAG" -R "$ARCHIVE_REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" legacy/* -R "$ARCHIVE_REPO" --clobber
+          else
+            gh release create "$TAG" legacy/* -R "$ARCHIVE_REPO" --title "$title" --notes "$notes"
+          fi

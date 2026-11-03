@@ -12,8 +12,10 @@ import argparse
 import csv
 import gzip
 import hashlib
+import io
 import json
 import shutil
+from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -41,10 +43,18 @@ def cell(value):
     return value
 
 
+@contextmanager
+def open_gzip_text(path):
+    """같은 내용이면 언제 만들어도 같은 파일(같은 SHA-256)이 되도록 gzip 머리의 시각·이름을 비운다."""
+    with open(path, "wb") as raw, gzip.GzipFile(filename="", mode="wb", fileobj=raw, mtime=0) as gz, \
+            io.TextIOWrapper(gz, encoding="utf-8-sig", newline="") as f:
+        yield f
+
+
 def write_csv(rows, path):
     """행들을 gzip CSV로 쓰고 열 이름을 돌려준다. 행이 없어도 빈 파일을 만든다."""
     columns = list(rows[0].keys()) if rows else []
-    with gzip.open(path, "wt", encoding="utf-8-sig", newline="") as f:
+    with open_gzip_text(path) as f:
         w = csv.writer(f)
         if columns:
             w.writerow(columns)
