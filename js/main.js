@@ -836,3 +836,24 @@
     }
   }
 })();
+
+// ===== 방문자 집계 (관리자 통계: /admin/stats.html) =====
+// 하루(한국 시간) 첫 방문이면 unique=true. IP 등 개인정보는 보내지 않습니다.
+(function () {
+  try {
+    if (location.pathname.indexOf("/admin") === 0) return;
+    var KEY = "sj_last_visit_day";
+    var today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
+    var unique = false;
+    try {
+      unique = localStorage.getItem(KEY) !== today;
+      localStorage.setItem(KEY, today);
+    } catch (e) {}
+    var payload = JSON.stringify({ path: location.pathname, unique: unique });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon("/api/track-visit", new Blob([payload], { type: "application/json" }));
+    } else {
+      fetch("/api/track-visit", { method: "POST", headers: { "Content-Type": "application/json" }, body: payload, keepalive: true });
+    }
+  } catch (e) {}
+})();

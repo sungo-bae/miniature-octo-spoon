@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>방문자 통계 | 실버잡 관리자</title>
+<style>
+  :root{
+    --bg:#fbf7f3; --card:#fff; --ink:#2b2522; --muted:#7a6f69; --line:#ece4dd;
+    --brand:#e8762d; --brand-soft:#f8d9c3; --uv:#e8762d; --pv:#f2b98f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans KR",-apple-system,BlinkMacSystemFont,sans-serif;font-size:16px;line-height:1.5}
+  .wrap{max-width:1000px;margin:0 auto;padding:24px 16px 60px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px}
+  h1{font-size:24px;margin:0}
+  h1 small{font-size:14px;color:var(--muted);font-weight:400;margin-left:6px}
+  a{color:var(--brand)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+  .kpi .label{font-size:14px;color:var(--muted)}
+  .kpi .val{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+  .kpi .sub{font-size:13px;color:var(--muted)}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  h2{font-size:18px;margin:0}
+  .seg button{border:1px solid var(--line);background:#fff;padding:6px 12px;font:inherit;font-size:14px;cursor:pointer}
+  .seg button:first-child{border-radius:8px 0 0 8px}
+  .seg button:last-child{border-radius:0 8px 8px 0}
+  .seg button+button{border-left:none}
+  .seg button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+  .legend{display:flex;gap:14px;font-size:13px;color:var(--muted)}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  #chart{width:100%;height:260px;display:block}
+  #chart text{fill:var(--muted);font-size:11px}
+  .tip{position:fixed;pointer-events:none;background:var(--ink);color:#fff;font-size:13px;padding:6px 10px;border-radius:8px;display:none;white-space:nowrap}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:7px 4px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:500}
+  td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+  .bar{height:6px;background:var(--brand-soft);border-radius:3px;margin-top:4px}
+  .bar>span{display:block;height:100%;background:var(--brand);border-radius:3px}
+  #login{max-width:360px;margin:15vh auto 0}
+  #login input{width:100%;font:inherit;padding:12px;border:1px solid var(--line);border-radius:10px;margin:12px 0}
+  .btn{background:var(--brand);color:#fff;border:0;border-radius:10px;padding:12px 16px;font:inherit;font-weight:600;cursor:pointer;width:100%}
+  .ghost{background:none;border:1px solid var(--line);color:var(--ink);width:auto;padding:6px 12px;font-size:14px}
+  .err{color:#c0392b;font-size:14px;min-height:20px}
+  .hidden{display:none}
+  .scroll{max-height:340px;overflow:auto}
+  @media (max-width:720px){.kpis{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr}.kpi .val{font-size:24px}}
+</style>
+</head>
+<body>
+
+<div id="login" class="card">
+  <h1>🧡 방문자 통계</h1>
+  <p style="color:var(--muted);margin:6px 0 0">관리자 비밀번호를 입력하세요.</p>
+  <form id="loginForm">
+    <input id="pw" type="password" autocomplete="current-password" placeholder="비밀번호" required>
+    <div class="err" id="loginErr"></div>
+    <button class="btn" type="submit">확인</button>
+  </form>
+</div>
+
+<div class="wrap hidden" id="app">
+  <header>
+    <h1>🧡 방문자 통계 <small id="updated"></small></h1>
+    <div style="display:flex;gap:8px">
+      <button class="btn ghost" id="refresh">새로고침</button>
+      <button class="btn ghost" id="logout">로그아웃</button>
+    </div>
+  </header>
+
+  <section class="kpis">
+    <div class="card kpi"><div class="label">오늘 방문자</div><div class="val" id="kTodayUv">-</div><div class="sub" id="kTodayPv"></div></div>
+    <div class="card kpi"><div class="label">어제 방문자</div><div class="val" id="kYestUv">-</div><div class="sub" id="kYestPv"></div></div>
+    <div class="card kpi"><div class="label">최근 7일 방문자</div><div class="val" id="k7Uv">-</div><div class="sub" id="k7Pv"></div></div>
+    <div class="card kpi"><div class="label">누적 방문자</div><div class="val" id="kTotUv">-</div><div class="sub" id="kTotPv"></div></div>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <h2>일별 추이</h2>
+      <div class="legend"><span><i style="background:var(--uv)"></i>방문자</span><span><i style="background:var(--pv)"></i>페이지뷰</span></div>
+      <div class="seg" id="range">
+        <button data-d="7">7일</button><button data-d="30" class="on">30일</button><button data-d="90">90일</button>
+      </div>
+    </div>
+    <svg id="chart" role="img" aria-label="일별 방문자 추이"></svg>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <h2 style="margin-bottom:10px">많이 본 페이지 <small style="color:var(--muted);font-weight:400" id="pagesRange"></small></h2>
+      <div class="scroll"><table id="pages"><thead><tr><th>페이지</th><th class="n">조회수</th></tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="card">
+      <h2 style="margin-bottom:10px">날짜별 상세</h2>
+      <div class="scroll"><table id="days"><thead><tr><th>날짜</th><th class="n">방문자</th><th class="n">페이지뷰</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+  <p style="color:var(--muted);font-size:13px;margin-top:16px">
+    · 방문자 = 하루 기준 브라우저 1대당 1회 (한국 시간 자정 초기화) · 페이지뷰 = 페이지가 열린 횟수 · 검색봇·관리자 페이지는 제외
+  </p>
+</div>
+<div class="tip" id="tip"></div>
+
+<script>
+(function(){
+  var SKEY = "sj_admin_stats_key";
+  var key = null, days = 30;
+  try { key = sessionStorage.getItem(SKEY); } catch(e){}
+  var $ = function(id){ return document.getElementById(id); };
+  var fmt = function(n){ return (n||0).toLocaleString("ko-KR"); };
+
+  async function load(){
+    var res = await fetch("/api/visit-stats?days=" + Math.max(days, 7), { headers: { "x-admin-key": key } });
+    if (res.status === 401) { showLogin("비밀번호가 올바르지 않습니다."); return; }
+    var data = await res.json();
+    if (!res.ok) { showLogin(data.error || "통계를 불러오지 못했습니다."); return; }
+    $("login").classList.add("hidden"); $("app").classList.remove("hidden");
+    render(data);
+  }
+
+  function showLogin(msg){
+    key = null; try { sessionStorage.removeItem(SKEY); } catch(e){}
+    $("app").classList.add("hidden"); $("login").classList.remove("hidden");
+    $("loginErr").textContent = msg || "";
+  }
+
+  function render(d){
+    var s = d.series, n = s.length;
+    var today = s[n-1] || {pv:0,uv:0}, yest = s[n-2] || {pv:0,uv:0};
+    var last7 = s.slice(-7).reduce(function(a,x){ a.uv+=x.uv; a.pv+=x.pv; return a; }, {uv:0,pv:0});
+    $("kTodayUv").textContent = fmt(today.uv); $("kTodayPv").textContent = "페이지뷰 " + fmt(today.pv);
+    $("kYestUv").textContent = fmt(yest.uv);   $("kYestPv").textContent = "페이지뷰 " + fmt(yest.pv);
+    $("k7Uv").textContent = fmt(last7.uv);     $("k7Pv").textContent = "페이지뷰 " + fmt(last7.pv);
+    $("kTotUv").textContent = fmt(d.total.uv); $("kTotPv").textContent = "페이지뷰 " + fmt(d.total.pv) + (d.total.since ? " · " + d.total.since + "부터" : "");
+    $("updated").textContent = new Date().toLocaleTimeString("ko-KR", {hour:"2-digit",minute:"2-digit"}) + " 기준";
+
+    var shown = s.slice(-days);
+    drawChart(shown);
+
+    var maxP = d.topPages.length ? d.topPages[0].pv : 1;
+    $("pagesRange").textContent = "(최근 " + Math.max(days,7) + "일)";
+    $("pages").tBodies[0].innerHTML = d.topPages.length ? d.topPages.map(function(p){
+      return "<tr><td>" + esc(p.path) + '<div class="bar"><span style="width:' + (p.pv/maxP*100).toFixed(1) + '%"></span></div></td><td class="n">' + fmt(p.pv) + "</td></tr>";
+    }).join("") : '<tr><td colspan="2" style="color:var(--muted)">아직 데이터가 없습니다.</td></tr>';
+
+    $("days").tBodies[0].innerHTML = shown.slice().reverse().map(function(x){
+      return "<tr><td>" + x.date + "</td><td class='n'>" + fmt(x.uv) + "</td><td class='n'>" + fmt(x.pv) + "</td></tr>";
+    }).join("");
+  }
+
+  function esc(t){ return String(t).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+
+  function niceMax(v){ if (v <= 5) return 5; var p = Math.pow(10, Math.floor(Math.log10(v))); var m = v/p; return (m<=2?2:m<=5?5:10)*p; }
+
+  function drawChart(s){
+    var svg = $("chart"), W = svg.clientWidth || 600, H = 260, L = 44, R = 8, T = 10, B = 26;
+    var max = niceMax(Math.max.apply(null, s.map(function(x){ return x.pv; }).concat([1])));
+    var iw = W-L-R, ih = H-T-B, bw = iw / s.length, gap = Math.max(1, bw*0.2);
+    var y = function(v){ return T + ih - v/max*ih; };
+    var h = "";
+    for (var i=0;i<=4;i++){ var v = max*i/4, yy = y(v);
+      h += '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+yy+'" y2="'+yy+'" stroke="var(--line)"/>';
+      h += '<text x="'+(L-6)+'" y="'+(yy+4)+'" text-anchor="end">'+fmt(v)+'</text>'; }
+    var step = Math.ceil(s.length / Math.max(1, Math.floor(iw/52)));
+    s.forEach(function(x,i){
+      var x0 = L + i*bw + gap/2, w = Math.max(1, bw-gap);
+      h += '<g data-i="'+i+'">';
+      h += '<rect x="'+(L+i*bw)+'" y="'+T+'" width="'+bw+'" height="'+ih+'" fill="transparent"/>';
+      h += '<rect x="'+x0+'" y="'+y(x.pv)+'" width="'+w+'" height="'+(T+ih-y(x.pv))+'" rx="2" fill="var(--pv)"/>';
+      h += '<rect x="'+(x0+w*0.2)+'" y="'+y(x.uv)+'" width="'+(w*0.6)+'" height="'+(T+ih-y(x.uv))+'" rx="2" fill="var(--uv)"/>';
+      h += '</g>';
+      var last = i === s.length-1;
+      if ((i % step === 0 && (s.length-1-i >= step || last)) || last) h += '<text x="'+(x0+w/2)+'" y="'+(H-8)+'" text-anchor="middle">'+x.date.slice(5).replace("-","/")+'</text>';
+    });
+    svg.setAttribute("viewBox", "0 0 "+W+" "+H);
+    svg.innerHTML = h;
+    var tip = $("tip");
+    svg.onmousemove = function(e){
+      var g = e.target.closest("g[data-i]"); if (!g){ tip.style.display="none"; return; }
+      var x = s[+g.dataset.i];
+      tip.innerHTML = "<b>"+x.date+"</b><br>방문자 "+fmt(x.uv)+" · 페이지뷰 "+fmt(x.pv);
+      tip.style.display="block"; tip.style.left=(e.clientX+12)+"px"; tip.style.top=(e.clientY-40)+"px";
+    };
+    svg.onmouseleave = function(){ tip.style.display="none"; };
+    lastSeries = s;
+  }
+  var lastSeries = null;
+  window.addEventListener("resize", function(){ if (lastSeries) drawChart(lastSeries); });
+
+  $("loginForm").onsubmit = function(e){ e.preventDefault(); key = $("pw").value; try { sessionStorage.setItem(SKEY, key); } catch(e){} load(); };
+  $("logout").onclick = function(){ showLogin(""); };
+  $("refresh").onclick = load;
+  $("range").onclick = function(e){
+    var b = e.target.closest("button"); if (!b) return;
+    days = +b.dataset.d;
+    [].forEach.call(this.children, function(x){ x.classList.toggle("on", x === b); });
+    load();
+  };
+
+  if (key) load();
+})();
+</script>
+</body>
+</html>
