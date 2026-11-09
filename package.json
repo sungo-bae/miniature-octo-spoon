@@ -3,6 +3,6 @@
   "private": true,
   "description": "실버잡(silverjob.kr) 사이트 — Netlify Functions 의존성",
   "dependencies": {
-    "@netlify/blobs": ">=8.0.0"
+    "@netlify/blobs": "^10.7.13"
   }
 }
