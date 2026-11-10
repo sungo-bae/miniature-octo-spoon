@@ -680,3 +680,26 @@ button { font-family: inherit; cursor: pointer; }
   padding: 18px 20px;
   margin: 0 0 20px;
 }
+
+/* ===== 직종별 안내 글 (/guide/*.html, scripts/generate-guides.mjs) ===== */
+.guide h2 { font-size: 1.25rem; margin: 32px 0 10px; color: var(--color-secondary); }
+.guide .legal-box { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: 18px 20px; margin: 0 0 20px; }
+.guide-summary { border-left: 4px solid var(--color-primary) !important; }
+.guide-crumb { font-size: .9rem; color: var(--color-text-muted); margin: 0 0 8px; }
+.guide-crumb a { text-decoration: underline; }
+.guide-list { padding-left: 1.2em; margin: 0; }
+.guide-list li { margin-bottom: 8px; line-height: 1.7; }
+.guide .table-scroll { overflow-x: auto; }
+.guide-table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: .95rem; }
+.guide-table th, .guide-table td { border: 1px solid var(--color-border); padding: 8px 10px; text-align: left; white-space: nowrap; }
+.guide-table th { background: var(--color-secondary-light); }
+.guide-bars { list-style: none; padding: 0; margin: 8px 0 0; }
+.guide-bars li { display: grid; grid-template-columns: 8.5em 1fr auto; gap: 10px; align-items: center; margin-bottom: 6px; font-size: .95rem; }
+.guide-bar { background: var(--color-secondary-light); border-radius: 999px; height: 12px; overflow: hidden; }
+.guide-bar span { display: block; height: 100%; background: var(--color-primary); border-radius: 999px; }
+.guide-bar-n { color: var(--color-text-muted); white-space: nowrap; }
+.guide-latest { list-style: none; padding: 0; margin: 8px 0 16px; }
+.guide-latest li { padding: 10px 0; border-bottom: 1px solid var(--color-border); }
+.guide-latest a { font-weight: 700; text-decoration: underline; }
+.guide-latest span { display: block; font-size: .9rem; color: var(--color-text-muted); margin-top: 2px; }
+@media (max-width: 520px) { .guide-bars li { grid-template-columns: 6.5em 1fr; } .guide-bar-n { grid-column: 2; } }
