@@ -116,8 +116,21 @@ async function fetchAllWelfareServices(apiKey) {
   return Array.from(seen.values());
 }
 
+// 공공데이터포털은 같은 키를 두 모양으로 줍니다: Decoding(+ / = 그대로)과 Encoding(%2B %2F %3D).
+// 아래 url.searchParams.set이 한 번 인코딩하므로, Encoding 키가 들어오면 먼저 풀어서
+// 어느 쪽을 넣어도 같은 키가 전달되게 합니다(2026-11-10 Encoding 키로 "등록되지 않은 서비스키" 오류).
+export function normalizeServiceKey(raw) {
+  const key = String(raw || "").trim();
+  if (!/%[0-9A-Fa-f]{2}/.test(key)) return key;
+  try {
+    return decodeURIComponent(key);
+  } catch {
+    return key;
+  }
+}
+
 export default async () => {
-  const apiKey = process.env.WELFARE_API_KEY;
+  const apiKey = normalizeServiceKey(process.env.WELFARE_API_KEY);
   const githubToken = process.env.GITHUB_TOKEN;
   const repo = process.env.GITHUB_REPO || "sungo-bae/miniature-octo-spoon";
   const branch = process.env.GITHUB_BRANCH || "main";
