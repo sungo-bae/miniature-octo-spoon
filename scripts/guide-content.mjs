@@ -44,6 +44,7 @@ export const GUIDES = [
   {
     job: "미화",
     slug: "cleaning",
+    latestExclude: /목장|착유|농장|축사|배합/,
     icon: "🧹",
     label: "미화·청소",
     title: "미화원(청소) 일자리 안내 — 하는 일, 급여, 지원 요령",

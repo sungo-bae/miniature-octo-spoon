@@ -110,10 +110,12 @@ function typeSection(s) {
 }
 
 function latestSection(g, s) {
-  if (!s.latest?.length) return "";
+  // 제목에 직종 단어가 들어가도 다른 일이 중심인 공고(예: "목장 관리 및 착유 … 청소 담당")는 뺍니다
+  const latest = (s.latest || []).filter((j) => !(g.latestExclude && g.latestExclude.test(j.title || "")));
+  if (!latest.length) return "";
   return `
       <h2>최근 올라온 ${esc(g.label)} 공고</h2>
-      <ul class="guide-latest">${s.latest.map((j) => `<li><a href="/jobs/${esc(j.slug)}.html">${esc(j.title)}</a>` +
+      <ul class="guide-latest">${latest.map((j) => `<li><a href="/jobs/${esc(j.slug)}.html">${esc(j.title)}</a>` +
         `<span>${esc([j.company, [j.region, j.regionDetail].filter(Boolean).join(" "), j.pay].filter(Boolean).join(" · "))}</span></li>`).join("")}</ul>
       <p><a href="/#categories" class="btn btn-primary">${esc(g.label)} 공고 전체 보기</a></p>`;
 }
@@ -187,7 +189,7 @@ export function guideIndexPage(statsByJob) {
     return `<a class="category-card" href="/guide/${g.slug}.html">
           <span class="cat-icon" aria-hidden="true">${g.icon}</span>
           <span class="cat-name">${esc(g.label)}</span>
-          <span class="cat-count">${s ? `모집 중 ${fmt(s.total)}건${month && month.n >= 20 ? ` · 월급 가운데 ${won(month.med, "month")}` : ""}` : "안내 보기"}</span>
+          <span class="cat-count">${s ? `모집 중 ${fmt(s.total)}건${month && month.n >= 20 ? `<br>월급 가운데 ${won(month.med, "month")}` : ""}` : "안내 보기"}</span>
         </a>`;
   }).join("\n        ");
   const body = `
