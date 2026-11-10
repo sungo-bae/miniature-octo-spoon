@@ -80,7 +80,10 @@ function buildSitemap() {
     { loc: "/privacy.html", changefreq: "yearly", priority: "0.3" },
     { loc: "/report.html", changefreq: "daily", priority: "0.7" },
     { loc: "/job-weather.html", changefreq: "daily", priority: "0.7" },
-    { loc: "/jobs/index.html", changefreq: "daily", priority: "0.7" }
+    { loc: "/jobs/index.html", changefreq: "daily", priority: "0.7" },
+    // 직종별 안내 글 (scripts/generate-guides.mjs, 숫자는 매일 갱신)
+    ...["", "guard.html", "cleaning.html", "kitchen.html", "office.html", "facility.html", "care.html"]
+      .map((f) => ({ loc: `/guide/${f}`, changefreq: "daily", priority: "0.8" }))
   ];
 
   const body = staticUrls
