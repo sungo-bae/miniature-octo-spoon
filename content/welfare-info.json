@@ -734,7 +734,7 @@
       "theme": "신체건강, 서민금융",
       "lastModYmd": "20260725",
       "url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00006693&wlfareInfoReldBztpCd=02",
-      "applyMethod": "전화, 방문",
+      "applyMethod": "방문, 전화",
       "benefitType": "현금지급"
     },
     {
@@ -756,7 +756,7 @@
       "theme": "서민금융, 신체건강",
       "lastModYmd": "20260724",
       "url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00004299&wlfareInfoReldBztpCd=02",
-      "applyMethod": "전화, 방문",
+      "applyMethod": "방문, 전화",
       "benefitType": "현금지급"
     },
     {
@@ -767,7 +767,7 @@
       "theme": "서민금융, 신체건강",
       "lastModYmd": "20260723",
       "url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00006661&wlfareInfoReldBztpCd=02",
-      "applyMethod": "방문, 팩스, 우편, E-mail",
+      "applyMethod": "방문, 우편, E-mail, 팩스",
       "benefitType": "현금지급"
     },
     {
@@ -987,7 +987,7 @@
       "theme": "신체건강",
       "lastModYmd": "20260717",
       "url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00005308&wlfareInfoReldBztpCd=02",
-      "applyMethod": "방문, 전화",
+      "applyMethod": "전화, 방문",
       "benefitType": "프로그램/서비스(서비스)"
     },
     {
@@ -1020,7 +1020,7 @@
       "theme": "신체건강, 서민금융",
       "lastModYmd": "20260717",
       "url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001661&wlfareInfoReldBztpCd=02",
-      "applyMethod": "팩스, E-mail, 우편, 방문, 전화",
+      "applyMethod": "E-mail, 우편, 팩스, 방문, 전화",
       "benefitType": "현금지급"
     },
     {
@@ -1108,7 +1108,7 @@
       "theme": "서민금융, 신체건강",
       "lastModYmd": "20260704",
       "url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00006488&wlfareInfoReldBztpCd=02",
-      "applyMethod": "전화, 방문",
+      "applyMethod": "방문, 전화",
       "benefitType": "현금지급, 감면"
     },
     {
@@ -1347,7 +1347,7 @@
       "title": "농어촌버스 요금체계 개선을 통한 노인등 대중교통 이용 활성화 지원사업",
       "description": "70세 이상 노인계층이 이동권을 보장을 통해 노인복지 향상",
       "region": "충청북도 옥천군",
-      "theme": "입양·위탁, 보호·돌봄, 서민금융, 주거",
+      "theme": "보호·돌봄, 입양·위탁, 서민금융, 주거",
       "lastModYmd": "20260808",
       "url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001440&wlfareInfoReldBztpCd=02",
       "applyMethod": "방문",
@@ -1413,7 +1413,7 @@
       "title": "장애인 자립생활 초기정착금 지원",
       "description": "시설퇴소 장애인의 자립생활을 위한 초기정착금 지원",
       "region": "인천광역시",
-      "theme": "서민금융, 보호·돌봄",
+      "theme": "보호·돌봄, 서민금융",
       "lastModYmd": "20260717",
       "url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000987&wlfareInfoReldBztpCd=02",
       "applyMethod": "방문",
@@ -1435,7 +1435,7 @@
       "title": "어려운 계층 위문",
       "description": "사회복지시설 및 저소득계층 명절, 연말 위문품 전달을 통한 경제적 안정 도모",
       "region": "경상남도 남해군",
-      "theme": "주거, 입양·위탁, 보호·돌봄, 안전·위기",
+      "theme": "주거, 보호·돌봄, 입양·위탁, 안전·위기",
       "lastModYmd": "20260716",
       "url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00002914&wlfareInfoReldBztpCd=02",
       "applyMethod": "",
@@ -1475,6 +1475,6 @@
       "benefitType": "현물지급"
     }
   ],
-  "syncedAt": "2026-10-26T18:01:01.484Z",
+  "syncedAt": "2026-11-10T01:42:03.315Z",
   "note": "한국사회보장정보원(복지로) 지자체복지서비스 Open API에서 '노년' 생애주기 기준으로 자동으로 가져온 데이터입니다. 신청 방법 등 자세한 내용은 복지로(www.bokjiro.go.kr), 보건복지상담센터(국번없이 129), 가까운 주민센터에서 확인하실 수 있습니다."
 }
