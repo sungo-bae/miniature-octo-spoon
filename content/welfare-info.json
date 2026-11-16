@@ -1325,7 +1325,7 @@
       "title": "성매매피해자 직업전환 생계비",
       "description": "탈성매매 여성들에게 직업전환 생계비용 지원으로 사회 전반의 지식 습득 기회 제공과 자립할 수 있는 여건 조성",
       "region": "제주특별자치도 제주시",
-      "theme": "서민금융, 주거, 보호·돌봄",
+      "theme": "보호·돌봄, 주거, 서민금융",
       "lastModYmd": "20260909",
       "url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001783&wlfareInfoReldBztpCd=02",
       "applyMethod": "",
@@ -1347,7 +1347,7 @@
       "title": "농어촌버스 요금체계 개선을 통한 노인등 대중교통 이용 활성화 지원사업",
       "description": "70세 이상 노인계층이 이동권을 보장을 통해 노인복지 향상",
       "region": "충청북도 옥천군",
-      "theme": "보호·돌봄, 입양·위탁, 서민금융, 주거",
+      "theme": "서민금융, 입양·위탁, 보호·돌봄, 주거",
       "lastModYmd": "20260808",
       "url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00001440&wlfareInfoReldBztpCd=02",
       "applyMethod": "방문",
@@ -1468,13 +1468,13 @@
       "title": "저소득재가노인 식사배달",
       "description": "ㅇ결식 우려가 있는 거동불편 재가노인에게 도시락 및 밑반찬을 제공하여 노인복지증진 및 사회안전망 구축",
       "region": "대구광역시",
-      "theme": "보호·돌봄, 입양·위탁, 주거, 안전·위기",
+      "theme": "입양·위탁, 보호·돌봄, 주거, 안전·위기",
       "lastModYmd": "20260703",
       "url": "https://www.bokjiro.go.kr/ssis-tbu/twataa/wlfareInfo/moveTWAT52011M.do?wlfareInfoId=WLF00000758&wlfareInfoReldBztpCd=02",
       "applyMethod": "",
       "benefitType": "현물지급"
     }
   ],
-  "syncedAt": "2026-11-10T01:42:29.392Z",
+  "syncedAt": "2026-11-16T18:01:12.259Z",
   "note": "한국사회보장정보원(복지로) 지자체복지서비스 Open API에서 '노년' 생애주기 기준으로 자동으로 가져온 데이터입니다. 신청 방법 등 자세한 내용은 복지로(www.bokjiro.go.kr), 보건복지상담센터(국번없이 129), 가까운 주민센터에서 확인하실 수 있습니다."
 }
