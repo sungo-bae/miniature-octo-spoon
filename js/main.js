@@ -45,6 +45,11 @@
     return value ? String(value).slice(0, 40) : null;
   }
 
+  // 관리자 통계 화면에서 "이 기기 방문 제외"를 켠 브라우저는 집계하지 않습니다.
+  function isExcludedVisitor() {
+    try { return localStorage.getItem("sj_exclude_me") === "1"; } catch (e) { return false; }
+  }
+
   function markApplyButton(el, page, job) {
     el.setAttribute("data-apply-track", page);
     el.setAttribute("data-slug", jobSlug(job));
@@ -54,7 +59,7 @@
 
   document.addEventListener("click", function (e) {
     var btn = e.target && e.target.closest ? e.target.closest("[data-apply-track]") : null;
-    if (!btn || !window.fetch) return;
+    if (!btn || !window.fetch || isExcludedVisitor()) return;
     try {
       fetch(CLICK_URL, {
         method: "POST",
@@ -842,6 +847,7 @@
 (function () {
   try {
     if (location.pathname.indexOf("/admin") === 0) return;
+    if (localStorage.getItem("sj_exclude_me") === "1") return; // 운영자 기기 제외
     var KEY = "sj_last_visit_day";
     var today = new Date(Date.now() + 9 * 3600 * 1000).toISOString().slice(0, 10);
     var unique = false;

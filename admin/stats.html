@@ -67,6 +67,7 @@
   <header>
     <h1>🧡 방문자 통계 <small id="updated"></small></h1>
     <div style="display:flex;gap:8px">
+      <button class="btn ghost" id="excludeMe" title="켜 두면 이 브라우저의 방문과 지원 클릭은 통계에 넣지 않습니다">이 기기 제외: 꺼짐</button>
       <button class="btn ghost" id="refresh">새로고침</button>
       <button class="btn ghost" id="logout">로그아웃</button>
     </div>
@@ -102,6 +103,7 @@
   </section>
   <p style="color:var(--muted);font-size:13px;margin-top:16px">
     · 방문자 = 하루 기준 브라우저 1대당 1회 (한국 시간 자정 초기화) · 페이지뷰 = 페이지가 열린 횟수 · 검색봇·관리자 페이지는 제외
+    · '이 기기 제외'를 켠 브라우저의 방문·지원 클릭은 세지 않음 (휴대폰·PC 각각 한 번씩 켜 주세요)
   </p>
 </div>
 <div class="tip" id="tip"></div>
@@ -195,6 +197,22 @@
   $("loginForm").onsubmit = function(e){ e.preventDefault(); key = $("pw").value; try { sessionStorage.setItem(SKEY, key); } catch(e){} load(); };
   $("logout").onclick = function(){ showLogin(""); };
   $("refresh").onclick = load;
+
+  // 운영자 기기 제외: silverjob.kr 전체가 같은 localStorage를 쓰므로 여기서 켜면 사이트 집계에서 빠집니다.
+  var EX = "sj_exclude_me";
+  function excluded(){ try { return localStorage.getItem(EX) === "1"; } catch(e){ return false; } }
+  function paintExclude(){
+    var on = excluded();
+    $("excludeMe").textContent = "이 기기 제외: " + (on ? "켜짐" : "꺼짐");
+    $("excludeMe").style.background = on ? "var(--brand)" : "";
+    $("excludeMe").style.color = on ? "#fff" : "";
+  }
+  $("excludeMe").onclick = function(){
+    try { if (excluded()) localStorage.removeItem(EX); else localStorage.setItem(EX, "1"); }
+    catch(e){ alert("이 브라우저에서는 설정을 저장할 수 없습니다(사생활 보호 모드 등)."); }
+    paintExclude();
+  };
+  paintExclude();
   $("range").onclick = function(e){
     var b = e.target.closest("button"); if (!b) return;
     days = +b.dataset.d;
