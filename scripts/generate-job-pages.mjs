@@ -79,6 +79,7 @@ function buildSitemap() {
     { loc: "/terms.html", changefreq: "yearly", priority: "0.3" },
     { loc: "/privacy.html", changefreq: "yearly", priority: "0.3" },
     { loc: "/report.html", changefreq: "daily", priority: "0.7" },
+    { loc: "/report-2026-10.html", changefreq: "monthly", priority: "0.6" },
     { loc: "/job-weather.html", changefreq: "daily", priority: "0.7" },
     { loc: "/jobs/index.html", changefreq: "daily", priority: "0.7" },
     // 직종별 안내 글 (scripts/generate-guides.mjs, 숫자는 매일 갱신)
