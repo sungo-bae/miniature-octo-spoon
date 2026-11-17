@@ -23,27 +23,45 @@
 // (Search Console에 서버 오류 1,280건 경고). 이제 빌드 때 만든 조각 파일(/job-data/<2자리>.json, 수십 KB) 중 해당 공고가
 // 든 조각 하나만 받습니다. 조각이 아직 없는 배포(빌드 전)에서는 예전처럼 전체 파일을 씁니다.
 
+// 2026-11-17: 응답 코드를 상황에 맞게 나눕니다.
+// - 200: 공고가 있음
+// - 410: 조각 파일과 Supabase를 모두 확인했는데 공고가 없음 = 마감·삭제된 공고.
+//        410은 "일부러 지움"이라는 뜻이라 구글이 404보다 빨리 검색 목록에서 뺍니다.
+// - 404: 주소 형식부터 공고 주소가 아님
+// - 503: 데이터를 읽다가 실패해 공고가 있는지 모름(잠시 뒤 다시 오라는 뜻, Retry-After).
+//        예전에는 이런 경우에도 "없음"으로 처리하거나, 받아오기를 6초씩 여러 번 기다리다
+//        함수 시간 제한에 걸려 서버 오류(5xx)가 났습니다. 이제 받아오기마다 짧게 끊고
+//        전체 시간도 정해 두어 제한 시간 안에 반드시 답합니다.
+
 import { collectValidJobs, jobDetailPage, jobShard, pageShell, JOB_SHARD_DIR, escapeHtml } from "./lib/job-template.mjs";
 
 const SITE_URL = "https://silverjob.kr";
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5분
-const FETCH_TIMEOUT_MS = 6000;
+const FETCH_TIMEOUT_MS = 3000; // 받아오기 한 번에 쓰는 최대 시간
+const SAMPLE_TIMEOUT_MS = 1500; // 마감 안내 화면의 추천 공고는 늦으면 빼고 보냄
+const GONE_CACHE = "public, max-age=21600"; // 마감 응답(410)은 CDN에 6시간 저장 — 크롤러 재방문을 빠르게
 
 const shardCache = new Map(); // shard -> { jobs: {slug: job}, fallbackDate, at }
 
-async function fetchJson(path) {
+// 결과를 { ok, missing, data } 로 돌려줍니다. missing은 서버가 "그런 파일 없음(404)"이라고 확실히
+// 답한 경우, ok=false·missing=false는 시간 초과·네트워크 오류처럼 결과를 모르는 경우입니다.
+async function fetchJsonResult(path, timeoutMs = FETCH_TIMEOUT_MS) {
   const fullUrl = `${SITE_URL}${path}`;
   try {
-    const res = await fetch(fullUrl, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
+    const res = await fetch(fullUrl, { signal: AbortSignal.timeout(timeoutMs) });
     if (!res.ok) {
       console.log(`job-page: fetch ${fullUrl} -> status ${res.status}`);
-      return null;
+      return { ok: false, missing: res.status === 404, data: null };
     }
-    return await res.json();
+    return { ok: true, missing: false, data: await res.json() };
   } catch (err) {
     console.error(`job-page: fetch ${fullUrl} failed:`, err && err.message ? err.message : err);
-    return null;
+    return { ok: false, missing: false, data: null };
   }
+}
+
+async function fetchJson(path, timeoutMs) {
+  return (await fetchJsonResult(path, timeoutMs)).data;
 }
 
 // 조각 파일이 없을 때만 쓰는 예전 방식 (전체 파일 두 개를 받아 슬러그 목록을 만든다)
@@ -61,11 +79,16 @@ async function loadFromFullFiles() {
 async function loadShard(slug) {
   const key = jobShard(slug);
   const hit = shardCache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit;
-  const data = (await fetchJson(`/${JOB_SHARD_DIR}/${key}.json`)) || (await loadFromFullFiles());
+  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return { ...hit, ok: true };
+  const r = await fetchJsonResult(`/${JOB_SHARD_DIR}/${key}.json`);
+  let data = r.data;
+  // 조각 파일이 "없다"고 확실히 답한 배포에서만 예전 방식(전체 파일)으로 찾습니다.
+  // 시간 초과일 때 4.8MB 파일까지 받으려 하면 함수 제한 시간을 넘기기 쉬워서입니다.
+  if (!r.ok && r.missing) data = await loadFromFullFiles();
+  if (!data) return { jobs: {}, fallbackDate: "", ok: false }; // 실패는 캐시하지 않음
   const entry = { jobs: data.jobs || {}, fallbackDate: data.fallbackDate || "", at: Date.now() };
   shardCache.set(key, entry);
-  return entry;
+  return { ...entry, ok: true };
 }
 
 // 검색엔진에 남아있는 옛 링크로 들어온 분이 빈손으로 돌아가지 않도록, 지금 올라와
@@ -76,7 +99,7 @@ const SAMPLE_SHARD_KEY = "00";
 async function sampleCurrentJobs() {
   try {
     const hit = shardCache.get(SAMPLE_SHARD_KEY);
-    const data = hit && Date.now() - hit.at < CACHE_TTL_MS ? hit : await fetchJson(`/${JOB_SHARD_DIR}/${SAMPLE_SHARD_KEY}.json`);
+    const data = hit && Date.now() - hit.at < CACHE_TTL_MS ? hit : await fetchJson(`/${JOB_SHARD_DIR}/${SAMPLE_SHARD_KEY}.json`, SAMPLE_TIMEOUT_MS);
     if (!data || !data.jobs) return [];
     if (!hit) shardCache.set(SAMPLE_SHARD_KEY, { jobs: data.jobs, fallbackDate: data.fallbackDate || "", at: Date.now() });
     return Object.entries(data.jobs)
@@ -87,7 +110,7 @@ async function sampleCurrentJobs() {
   }
 }
 
-function notFoundPage(samples) {
+function notFoundPage(samples, gone = false) {
   const sampleHtml = samples && samples.length
     ? `
       <h2 style="font-size:1.05rem; margin-top:28px;">대신 이런 공고는 어떠세요?</h2>
@@ -96,14 +119,14 @@ ${samples.map(({ slug, job }) => `        <li style="margin-bottom:6px;"><a href
       </ul>`
     : "";
   const bodyHtml = `
-      <h1 class="section-title" style="font-size:clamp(1.5rem,3.2vw,2rem);">공고를 찾을 수 없습니다</h1>
-      <p class="section-desc">이미 마감되었거나 삭제된 채용정보일 수 있습니다.</p>
+      <h1 class="section-title" style="font-size:clamp(1.5rem,3.2vw,2rem);">${gone ? "마감된 공고입니다" : "공고를 찾을 수 없습니다"}</h1>
+      <p class="section-desc">${gone ? "이 채용정보는 마감되었거나 원문에서 내려갔습니다." : "이미 마감되었거나 삭제된 채용정보일 수 있습니다."}</p>
       <p><a href="/#jobs" class="btn btn-primary">전체 일자리 보러 가기</a></p>
 ${sampleHtml}
 `;
   return pageShell({
-    title: "공고를 찾을 수 없습니다",
-    description: "요청하신 채용정보를 찾을 수 없습니다.",
+    title: gone ? "마감된 공고입니다" : "공고를 찾을 수 없습니다",
+    description: gone ? "마감되었거나 원문에서 내려간 채용정보입니다." : "요청하신 채용정보를 찾을 수 없습니다.",
     path: "/jobs/",
     bodyHtml,
     jsonLd: null,
@@ -117,16 +140,20 @@ ${sampleHtml}
 const SUPABASE_REST = "https://idngidaxescxuyjzirob.supabase.co/rest/v1/";
 const SUPABASE_KEY = "sb_publishable_hGMZ7IU3qZZc3jGzUP1ySQ_h1eRn7m0"; // 공개(publishable) 키, 읽기 전용
 
+// { ok, job }: ok=false는 조회 자체가 실패해 공고가 있는지 모르는 경우입니다.
 async function fetchSupabaseJob(slug) {
   try {
     const url = `${SUPABASE_REST}mv_site_jobs?select=*&slug=eq.${encodeURIComponent(slug)}&limit=1`;
     const res = await fetch(url, { headers: { apikey: SUPABASE_KEY }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.log(`job-page: Supabase 조회 status ${res.status}`);
+      return { ok: false, job: null };
+    }
     const rows = await res.json();
-    return rows[0] || null;
+    return { ok: true, job: (Array.isArray(rows) && rows[0]) || null };
   } catch (err) {
     console.error("job-page: Supabase 조회 실패:", err && err.message ? err.message : err);
-    return null;
+    return { ok: false, job: null };
   }
 }
 
@@ -140,14 +167,22 @@ export default async (req) => {
   const slug = pathMatch ? pathMatch[1] : "";
   console.log(`job-page: 요청 url=${req.url} pathname=${url.pathname} slug=${JSON.stringify(slug)}`);
 
-  const { jobs, fallbackDate } = slug ? await loadShard(slug) : { jobs: {}, fallbackDate: "" };
-  let job = Object.prototype.hasOwnProperty.call(jobs, slug) ? jobs[slug] : null;
-  let postedDate = fallbackDate;
-  if (!job && /^job-[0-9a-f]{8}$/.test(slug)) {
-    job = await fetchSupabaseJob(slug);
-    if (job) postedDate = job.datePosted || fallbackDate;
+  const validSlug = /^job-[0-9a-f]{8}$/.test(slug);
+  const shard = validSlug ? await loadShard(slug) : { jobs: {}, fallbackDate: "", ok: true };
+  let job = Object.prototype.hasOwnProperty.call(shard.jobs, slug) ? shard.jobs[slug] : null;
+  let postedDate = shard.fallbackDate;
+  let lookupFailed = !shard.ok;
+  if (!job && validSlug) {
+    const sb = await fetchSupabaseJob(slug);
+    if (sb.job) {
+      job = sb.job;
+      postedDate = job.datePosted || shard.fallbackDate;
+      lookupFailed = false;
+    } else if (!sb.ok) {
+      lookupFailed = true;
+    }
   }
-  console.log(`job-page: slug=${slug} found=${!!job}`);
+  console.log(`job-page: slug=${slug} found=${!!job} lookupFailed=${lookupFailed}`);
 
   // 정적 페이지와 같은 보안 설정 (netlify.toml의 [[headers]]는 함수 응답에 적용되지 않음)
   const securityHeaders = {
@@ -157,11 +192,36 @@ export default async (req) => {
     "Content-Security-Policy": "frame-ancestors 'self'; base-uri 'self'; object-src 'none'"
   };
 
+  if (!job && validSlug && lookupFailed) {
+    // 공고가 있는지 확인하지 못함: "없음"으로 잘못 알리지 않고 잠시 뒤 다시 오게 합니다.
+    return new Response(pageShell({
+      title: "잠시 후 다시 시도해 주세요",
+      description: "일시적으로 채용정보를 불러오지 못했습니다.",
+      path: "/jobs/",
+      bodyHtml: `
+      <h1 class="section-title" style="font-size:clamp(1.5rem,3.2vw,2rem);">잠시 후 다시 시도해 주세요</h1>
+      <p class="section-desc">일시적으로 채용정보를 불러오지 못했습니다. 잠시 뒤 새로고침해 주세요.</p>
+      <p><a href="/#jobs" class="btn btn-primary">전체 일자리 보러 가기</a></p>
+`,
+      jsonLd: null,
+      noindex: true
+    }), {
+      status: 503,
+      headers: { ...securityHeaders, "Content-Type": "text/html; charset=utf-8", "Retry-After": "120", "Cache-Control": "no-store" }
+    });
+  }
+
   if (!job) {
     const samples = await sampleCurrentJobs();
-    return new Response(notFoundPage(samples), {
-      status: 404,
-      headers: { ...securityHeaders, "Content-Type": "text/html; charset=utf-8" }
+    // 형식이 맞는 공고 주소인데 어디에도 없으면 마감·삭제된 공고 → 410(검색에서 빨리 빠짐)
+    const gone = validSlug;
+    return new Response(notFoundPage(samples, gone), {
+      status: gone ? 410 : 404,
+      headers: {
+        ...securityHeaders,
+        "Content-Type": "text/html; charset=utf-8",
+        ...(gone ? { "Netlify-CDN-Cache-Control": GONE_CACHE } : {})
+      }
     });
   }
 
